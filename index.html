@@ -661,6 +661,54 @@
             }
         }
     </style>
+    <style>
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .confirm-content {
+            background: var(--background-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+        }
+        .confirm-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .confirm-btn {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .confirm-yes {
+            background: var(--accent-color);
+            color: white;
+        }
+        .confirm-no {
+            background: var(--background-hover);
+            color: var(--text-primary);
+        }
+        .confirm-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+    </style>
 </head>
 
 <body>
@@ -678,6 +726,7 @@
             </select>
             <textarea id="chat-input" placeholder="Type your message..." rows="1"></textarea>
             <input type="text" id="image-url-input" class="image-url-input" placeholder="Enter image URL (optional)">
+            <div id="mic-status" style="display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--accent-color); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; margin-bottom: 8px;">Microphone Active</div>
             <button id="send-button">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="currentColor"/>
@@ -689,6 +738,15 @@
         <div>
             <h2>AI is thinking...</h2>
             <div class="spinner" style="margin: auto; border: 16px solid #f3f3f3; border-top: 16px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 2s linear infinite;"></div>
+        </div>
+    </div>
+    <div id="confirmDialog" class="confirm-dialog" style="display: none;">
+        <div class="confirm-content">
+            <p>Send this message?</p>
+            <div class="confirm-buttons">
+                <button id="confirmYes" class="confirm-btn confirm-yes">Send</button>
+                <button id="confirmNo" class="confirm-btn confirm-no">Cancel</button>
+            </div>
         </div>
     </div>
     <script src="app.js"></script>

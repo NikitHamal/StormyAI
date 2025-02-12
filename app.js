@@ -11,6 +11,10 @@ const videoTitle = document.getElementById('video-title');
 const videoDuration = document.getElementById('video-duration');
 const qualitySelector = document.getElementById('quality-selector');
 const downloadButton = document.getElementById('download-button');
+const micStatus = document.getElementById('mic-status');
+const confirmDialog = document.getElementById('confirmDialog');
+const confirmYes = document.getElementById('confirmYes');
+const confirmNo = document.getElementById('confirmNo');
 
 // Add this at the beginning of your JavaScript file, after the DOM Elements section
 const toolbarStyles = document.createElement('style');
@@ -497,6 +501,8 @@ ${message}`
         hideLoading();
     }
 }
+
+let isSending = false; // Flag to prevent multiple sends
 
 function isValidUrl(string) {
     try {
@@ -1782,14 +1788,13 @@ imageModalStyles.textContent = `
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.9);
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
+        z-index: 2000;
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         box-sizing: border-box;
-        -webkit-overflow-scrolling: touch;
+        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(5px);
         overscroll-behavior: contain;
         touch-action: none;
-        z-index: 2000;
     }
 
     .image-modal.active {
@@ -2026,8 +2031,10 @@ micStyles.textContent = `
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--text-secondary);
         flex-shrink: 0;
+        padding: 0;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
     }
 
     .mic-button svg {
@@ -2146,26 +2153,83 @@ if (hasSpeechRecognition) {
 
     recognition.onstart = () => {
         micButton.classList.add('recording');
+        micStatus.style.display = 'block';
+        micStatus.textContent = 'Microphone Active';
     };
 
     recognition.onend = () => {
         micButton.classList.remove('recording');
+        micStatus.style.display = 'none';
+        micStatus.textContent = '';
     };
 
     recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
             .map(result => result[0].transcript)
             .join('').trim(); // Trim whitespace
+        
+        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim(); // Remove 'send' and trim whitespace
+        
+        // Handle style selection command
+        if (transcript.toLowerCase().startsWith('choose style')) {
+            const style = transcript.toLowerCase().replace('choose style', '').trim();
+            const styleButton = document.querySelector(`.style-option[data-style="${style}"]`);
+            if (styleButton) {
+                styleButton.click();
+                return;
+            }
+        }
 
+        // Handle video quality selection command using ordinal numbers
+        const playMatch = transcript.toLowerCase().match(/^play (first|second|third|fourth|fifth)$/);
+        if (playMatch) {
+            const ordinalNumber = playMatch[1];
+            const videoNumber = ordinalMap[ordinalNumber];
+            if (videoNumber) {
+                const playButton = document.querySelector(`.track-item:nth-child(${videoNumber}) .play-button`);
+                if (playButton) {
+                    playButton.click();
+                    return;
+                }
+            }
+        }
+
+        // Handle audio quality selection command
+        const qualityMatch = transcript.toLowerCase().match(/play (\d+)(?:kbps)?/);
+        if (qualityMatch) {
+            const requestedQuality = qualityMatch[1];
+            const qualityOptions = document.querySelectorAll('.quality-option');
+            for (const option of qualityOptions) {
+                const qualityText = option.querySelector('.quality-name').textContent;
+                if (qualityText.toLowerCase().includes(requestedQuality)) {
+                    option.click();
+                    return;
+                }
+            }
+        }
+
+        // Handle send command
+        if (transcript.toLowerCase().includes('send')) {
+            chatInput.value = cleanedTranscript;
+            if (cleanedTranscript && !isSending) {
+                isSending = true;
+                sendMessage();
+                setTimeout(() => isSending = false, 1000);
+            }
+            return;
+        }
+
+        // Default behavior: update input value
         chatInput.value = transcript;
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
-
     };
 
     recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
         micButton.classList.remove('recording');
+        micStatus.style.display = 'none';
+        micStatus.textContent = '';
         if (event.error === 'not-allowed') {
             alert('Please enable microphone access to use speech-to-text.');
         }
@@ -2179,5 +2243,46 @@ if (hasSpeechRecognition) {
             chatInput.value = '';
             recognition.start();
         }
+    });
+}
+
+// Add ordinal number mapping
+const ordinalMap = {
+    'first': 1,
+    'second': 2,
+    'third': 3,
+    'fourth': 4,
+    'fifth': 5
+};
+
+// Add confirmation dialog functionality
+const confirmDialog = document.getElementById('confirmDialog');
+const confirmYes = document.getElementById('confirmYes');
+const confirmNo = document.getElementById('confirmNo');
+
+function showConfirmDialog(message) {
+    return new Promise((resolve) => {
+        chatInput.value = message;
+        confirmDialog.style.display = 'flex';
+        
+        const handleYes = () => {
+            confirmDialog.style.display = 'none';
+            cleanup();
+            resolve(true);
+        };
+        
+        const handleNo = () => {
+            confirmDialog.style.display = 'none';
+            cleanup();
+            resolve(false);
+        };
+
+        confirmYes.addEventListener('click', handleYes);
+        confirmNo.addEventListener('click', handleNo);
+        
+        const cleanup = () => {
+            confirmYes.removeEventListener('click', handleYes);
+            confirmNo.removeEventListener('click', handleNo);
+        };
     });
 }
