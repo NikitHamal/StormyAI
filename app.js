@@ -2155,11 +2155,16 @@ if (hasSpeechRecognition) {
     recognition.onresult = (event) => {
         const transcript = Array.from(event.results)
             .map(result => result[0].transcript)
-            .join('');
-        
+            .join('').trim(); // Trim whitespace
+
         chatInput.value = transcript;
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
+
+        // Check for 'send' command
+        if (transcript.toLowerCase().includes('send')) {
+            sendMessage(); // Call sendMessage function
+        }
     };
 
     recognition.onerror = (event) => {
