@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stormy</title>
+    <link rel="icon" type="image/x-icon" href="stormy.jpg">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -400,10 +401,13 @@
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
             <select id="model-selector" class="model-dropdown">
-                <option value="gemini_flash">Gemini 1.5 Flash</option>
+                <option value="gemini_flash">Gemini Flash</option>
+                <option value="gpt4o">GPT-4 Optimized</option>
+                <option value="gpt4omini">GPT-4 Mini</option>
                 <option value="gemini_realtime">Gemini Realtime</option>
-                <option value="gpt4o">GPT-4 Turbo</option>
-                <option value="gpt4omini">GPT-4</option>
+                <option value="claude_sonnet">Claude Sonnet</option>
+                <option value="mixtral">Mixtral</option>
+                <option value="llama3">Llama 3 70B</option>
             </select>
             <textarea id="chat-input" placeholder="Type your message..." rows="1"></textarea>
             <input type="text" id="image-url-input" class="image-url-input" placeholder="Enter image URL (optional)">

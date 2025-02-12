@@ -150,6 +150,14 @@ const SPOTIFY_TRACK_API = 'https://api.paxsenix.biz.id/spotify/track';
 const YT_SEARCH_API = 'https://api.paxsenix.biz.id/yt/search';
 const YT_DOWNLOAD_API = 'https://api.paxsenix.biz.id/yt/yttomp4';
 
+// Add the new API endpoint constant
+const CLAUDE_SONNET_API_URL = 'https://api.paxsenix.biz.id/ai/claudeSonnet';
+const MIXTRAL_API_URL = 'https://api.paxsenix.biz.id/ai/mixtral';
+const LLAMA3_API_URL = 'https://api.paxsenix.biz.id/ai/llama3';
+
+// Update the API endpoint constant
+const MIDJOURNEY_API_URL = 'https://api.paxsenix.biz.id/ai-image/midjourney';
+
 // Chat history management
 const MAX_HISTORY = 15;
 let chatHistory = [];
@@ -302,7 +310,7 @@ async function sendMessage() {
     const commandMatch = message.match(/^(\w+)(?:\s+(.*))?$/);
     if (commandMatch) {
         const command = commandMatch[1].toLowerCase();
-        const args = commandMatch[2] || '';
+        const args = commandMatch[2] ? commandMatch[2].trim() : '';
 
         switch (command) {
             case 'help':
@@ -390,7 +398,7 @@ async function sendMessage() {
         if (currentModel === 'gemini_flash') {
             apiUrl = `${GEMINI_FLASH_API_URL}?key=${GEMINI_FLASH_API_KEY}`;
             
-            // Format the conversation history and current message
+            // Only include conversation history for Gemini Flash
             const conversationText = chatHistory.length > 1 ? 
                 `Previous conversation:\n${chatHistory.slice(0, -1)
                     .map(msg => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.content}`)
@@ -412,17 +420,23 @@ ${message}`
                     }]
                 })
             };
+        } else if (currentModel === 'claude_sonnet' || currentModel === 'mixtral' || currentModel === 'llama3') {
+            // Claude Sonnet, Mixtral, and Llama3 implementation (they use the same format)
+            apiUrl = currentModel === 'claude_sonnet' ? `${CLAUDE_SONNET_API_URL}?text=${encodeURIComponent(message)}` :
+                    currentModel === 'mixtral' ? `${MIXTRAL_API_URL}?text=${encodeURIComponent(message)}` :
+                    `${LLAMA3_API_URL}?text=${encodeURIComponent(message)}`;
+            
+            options = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
         } else {
-            // For other models, include chat history in the prompt
-            const historyContext = chatHistory.slice(0, -1)
-                .map(msg => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.content}`)
-                .join('\n');
-            
-            const fullMessage = `Previous conversation:\n${historyContext}\n\nUser: ${message}`;
-            
-            apiUrl = currentModel === 'gpt4o' ? `${GPT4O_API_URL}?text=${encodeURIComponent(fullMessage)}` :
-                    currentModel === 'gpt4omini' ? `${GPT4O_MINI_API_URL}?text=${encodeURIComponent(fullMessage)}` :
-                    `${GEMINI_REALTIME_API_URL}?text=${encodeURIComponent(fullMessage)}`;
+            // For Pax Senix models, just send the current message without history
+            apiUrl = currentModel === 'gpt4o' ? `${GPT4O_API_URL}?text=${encodeURIComponent(message)}` :
+                    currentModel === 'gpt4omini' ? `${GPT4O_MINI_API_URL}?text=${encodeURIComponent(message)}` :
+                    `${GEMINI_REALTIME_API_URL}?text=${encodeURIComponent(message)}`;
             
             options = {
                 method: 'GET',
@@ -432,9 +446,16 @@ ${message}`
             };
         }
 
-        // Update lastRequestTime only for non-Gemini models
+        // Update lastRequestTime for non-Gemini models
         if (currentModel !== 'gemini_flash') {
-            lastRequestTime = Date.now();
+            const now = Date.now();
+            const timeSinceLastRequest = now - lastRequestTime;
+            
+            if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
+                throw new Error(`Please wait ${Math.ceil((RATE_LIMIT_DELAY - timeSinceLastRequest) / 1000)} seconds before sending another message.`);
+            }
+            
+            lastRequestTime = now;
         }
 
         const response = await fetch(apiUrl, options);
@@ -1572,3 +1593,174 @@ loadingOverlayStyles.textContent = `
     }
 `;
 document.head.appendChild(loadingOverlayStyles);
+
+// Add styles for the generated images
+const imageStyles = document.createElement('style');
+imageStyles.textContent = `
+    .bot-message img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: 10px 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 768px) {
+        .bot-message img {
+            border-radius: 6px;
+            margin: 8px 0;
+        }
+    }
+`;
+document.head.appendChild(imageStyles);
+
+// Add style options constant
+const MIDJOURNEY_STYLES = [
+    "single-portrait",
+    "anime",
+    "watercolor",
+    "photo-realistic",
+    "logo",
+    "fantasy",
+    "minimalist",
+    "cinematic",
+    "isometric",
+    "group-portrait"
+];
+
+// Update the handleImagineCommand function
+async function handleImagineCommand(prompt) {
+    try {
+        // Create style selector message
+        const styleMessage = `Select a style for your image:
+${MIDJOURNEY_STYLES.map((style, index) => `${index + 1}. ${style}`).join('\n')}`;
+        
+        appendMessage(styleMessage, false);
+
+        // Create style selector UI
+        const styleSelector = document.createElement('div');
+        styleSelector.className = 'style-selector';
+        styleSelector.innerHTML = MIDJOURNEY_STYLES.map(style => `
+            <button class="style-option" data-style="${style}">
+                ${style}
+            </button>
+        `).join('');
+
+        // Add style selector to the last message
+        const lastMessage = document.querySelector('.bot-message:last-child');
+        lastMessage.appendChild(styleSelector);
+
+        // Wait for style selection
+        const selectedStyle = await new Promise(resolve => {
+            styleSelector.addEventListener('click', (e) => {
+                const button = e.target.closest('.style-option');
+                if (button) {
+                    styleSelector.remove();
+                    resolve(button.dataset.style);
+                }
+            });
+        });
+
+        appendMessage(`Generating ${selectedStyle} image for: "${prompt}"`, false);
+        
+        // Show loading only after style is selected and before API call
+        showLoading();
+        
+        const response = await fetch(`${MIDJOURNEY_API_URL}?text=${encodeURIComponent(prompt)}&style=${selectedStyle}`);
+        
+        if (!response.ok) {
+            throw new Error(`Image generation failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.ok && data.task_url) {
+            appendMessage(`Image generation started. Please wait...`, false);
+            
+            // Poll the task URL until the image is ready
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            while (attempts < maxAttempts) {
+                const taskResponse = await fetch(data.task_url);
+                const taskData = await taskResponse.json();
+                
+                console.log('Task status:', taskData); // For debugging
+                
+                if (taskData.ok) {
+                    if (taskData.status === 'done' && taskData.url) {
+                        const imageMessage = `Generated ${selectedStyle} image for: "${prompt}"
+
+![Generated Image](${taskData.url})`;
+                        appendMessage(imageMessage, false);
+                        return; // Success! Exit the function
+                    } else if (taskData.status === 'pending' || !taskData.status) {
+                        // Still processing or status not available yet
+                        await new Promise(resolve => setTimeout(resolve, 10000));
+                        attempts++;
+                        continue;
+                    }
+                }
+                
+                // If we get here, something went wrong
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                attempts++;
+            }
+            
+            if (attempts >= maxAttempts) {
+                throw new Error('Image generation timed out. Please try again.');
+            }
+        } else {
+            throw new Error(data.message || 'Failed to start image generation');
+        }
+    } catch (error) {
+        console.error('Image generation error:', error);
+        appendMessage(`Error generating image: ${error.message}`, false);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Add styles for the style selector
+const styleSelectorStyles = document.createElement('style');
+styleSelectorStyles.textContent = `
+    .style-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        margin: 10px 0;
+    }
+
+    .style-option {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--background-primary);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+        text-transform: capitalize;
+    }
+
+    .style-option:hover {
+        background: var(--accent-color);
+        color: white;
+        border-color: var(--accent-color);
+    }
+
+    .style-option:active {
+        transform: scale(0.98);
+    }
+
+    @media (max-width: 768px) {
+        .style-selector {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        }
+
+        .style-option {
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+    }
+`;
+document.head.appendChild(styleSelectorStyles);
