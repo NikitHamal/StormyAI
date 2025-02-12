@@ -279,25 +279,32 @@ function createMessageElement(content, isUser, options = null) {
 
 function appendMessage(content, isUser, options = null, saveToHistory = true) {
     const messageElement = createMessageElement(content, isUser, options);
+    
+    // Add click handler for images
+    const images = messageElement.querySelectorAll('img');
+    images.forEach(img => {
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', () => {
+            const modal = document.querySelector('.image-modal');
+            const modalImg = modal.querySelector('.modal-image');
+            modalImg.src = img.src;
+            modal.classList.add('active');
+        });
+    });
+    
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    // Only save to history if saveToHistory is true
+    
+    // Save to history if needed
     if (saveToHistory) {
-        // Add message to history
         chatHistory.push({
             content,
             isUser,
             timestamp: new Date().toISOString()
         });
-
-        // Keep only the last MAX_HISTORY messages
+        
         if (chatHistory.length > MAX_HISTORY) {
             chatHistory = chatHistory.slice(chatHistory.length - MAX_HISTORY);
-            // Remove excess messages from DOM
-            while (chatMessages.children.length > MAX_HISTORY) {
-                chatMessages.removeChild(chatMessages.firstChild);
-            }
         }
     }
 }
@@ -1764,3 +1771,211 @@ styleSelectorStyles.textContent = `
     }
 `;
 document.head.appendChild(styleSelectorStyles);
+
+// Add this after your existing styles
+const imageModalStyles = document.createElement('style');
+imageModalStyles.textContent = `
+    .image-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 2000;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        box-sizing: border-box;
+        -webkit-backdrop-filter: blur(5px);
+        backdrop-filter: blur(5px);
+        overscroll-behavior: contain;
+        touch-action: none;
+    }
+
+    .image-modal.active {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-image {
+        max-width: 90%;
+        max-height: 80vh;
+        object-fit: contain;
+        border-radius: 8px;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    .modal-controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .modal-button {
+        -webkit-appearance: none;
+        appearance: none;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        background: var(--accent-color);
+        color: white;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        touch-action: manipulation;
+    }
+
+    /* Add iOS-specific touch feedback */
+    @supports (-webkit-touch-callout: none) {
+        .modal-button:active {
+            opacity: 0.7;
+        }
+    }
+`;
+document.head.appendChild(imageModalStyles);
+
+// Add modal HTML to the body
+const modalHTML = `
+<div class="image-modal">
+    <button class="modal-close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+    </button>
+    <img class="modal-image" src="" alt="Full size image">
+    <div class="modal-controls">
+        <button class="modal-button download-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download
+        </button>
+        <button class="modal-button share-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            Share
+        </button>
+    </div>
+</div>`;
+
+document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+// Add modal event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.querySelector('.image-modal');
+    const closeBtn = modal.querySelector('.modal-close');
+    const downloadBtn = modal.querySelector('.download-btn');
+    const shareBtn = modal.querySelector('.share-btn');
+    
+    closeBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+        }
+    });
+    
+    downloadBtn.addEventListener('click', async () => {
+        const img = modal.querySelector('.modal-image');
+        try {
+            // For iOS Safari, open image in new tab
+            if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+                window.open(img.src, '_blank');
+                return;
+            }
+
+            // For other browsers, try download
+            try {
+                const response = await fetch(img.src);
+                const blob = await response.blob();
+                
+                // Check if iOS
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    // Create object URL and open in new tab
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    setTimeout(() => window.URL.revokeObjectURL(url), 100);
+                } else {
+                    // Normal download for other browsers
+                    downloadBlob(blob, 'generated-image.png');
+                }
+            } catch (error) {
+                // Fallback to direct link
+                window.open(img.src, '_blank');
+            }
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Please long press the image and choose "Save Image" to download.');
+        }
+    });
+    
+    shareBtn.addEventListener('click', async () => {
+        const img = modal.querySelector('.modal-image');
+        try {
+            // Try native share first (works well on iOS)
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'Generated Image',
+                    text: 'Check out this AI-generated image!',
+                    url: img.src
+                });
+            } else if (navigator.clipboard) {
+                // Fallback to clipboard
+                await navigator.clipboard.writeText(img.src);
+                alert('Image URL copied to clipboard!');
+            } else {
+                // Final fallback
+                const textArea = document.createElement('textarea');
+                textArea.value = img.src;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Image URL copied to clipboard!');
+            }
+        } catch (error) {
+            console.error('Share failed:', error);
+            alert('Please long press the image to share.');
+        }
+    });
+});
+
+// Add helper function for blob download
+function downloadBlob(blob, fileName) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+}
+
+// Add iOS-specific meta tags to index.html
+document.head.insertAdjacentHTML('beforeend', `
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+`);
+
+// Add iOS scroll bounce fix
+document.body.style.overscrollBehavior = 'none';
+chatMessages.style.overscrollBehavior = 'contain';
