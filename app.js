@@ -12,6 +12,120 @@ const videoDuration = document.getElementById('video-duration');
 const qualitySelector = document.getElementById('quality-selector');
 const downloadButton = document.getElementById('download-button');
 
+// Add this at the beginning of your JavaScript file, after the DOM Elements section
+const toolbarStyles = document.createElement('style');
+toolbarStyles.textContent = `
+    .toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: var(--background-primary);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .toolbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text-primary);
+    }
+
+    .toolbar-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+
+    .toolbar-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Adjust main content to account for toolbar */
+    #chat-container {
+        padding-top: 60px !important;
+        height: calc(100vh - 60px) !important;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    #chat-messages {
+        padding-bottom: 80px;
+    }
+
+    .chat-input-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--background-primary);
+        padding: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    @media (max-width: 768px) {
+        .toolbar {
+            height: 50px;
+            padding: 0 16px;
+        }
+
+        .toolbar-logo {
+            width: 28px;
+            height: 28px;
+        }
+
+        .toolbar-title {
+            font-size: 1.1rem;
+        }
+
+        #chat-container {
+            padding-top: 50px !important;
+            height: calc(100vh - 50px) !important;
+        }
+
+        #chat-messages {
+            padding-bottom: 70px;
+        }
+
+        .chat-input-container {
+            padding: 0.75rem;
+        }
+    }
+`;
+
+// Remove any existing toolbar styles
+const existingToolbarStyles = document.querySelector('style[data-toolbar-styles]');
+if (existingToolbarStyles) {
+    existingToolbarStyles.remove();
+}
+
+// Add the data attribute to identify the styles
+toolbarStyles.setAttribute('data-toolbar-styles', '');
+document.head.appendChild(toolbarStyles);
+
+// Create and add the toolbar to the DOM
+const toolbar = document.createElement('div');
+toolbar.className = 'toolbar';
+toolbar.innerHTML = `
+    <a href="/" class="toolbar-brand">
+        <img src="stormy.jpg" alt="Stormy" class="toolbar-logo">
+        <span class="toolbar-title">Stormy</span>
+    </a>
+`;
+
+// Insert the toolbar at the beginning of the body
+document.body.insertBefore(toolbar, document.body.firstChild);
+
 marked.setOptions({
     highlight: function(code, language) {
         if (language && hljs.getLanguage(language)) {
@@ -1117,18 +1231,18 @@ async function playSelectedQuality(videoId, audioUrl) {
         await audio.load(); // Explicitly load for iOS
 
         // Update UI to show loading state
-        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="30 30">
-                <animateTransform
-                    attributeName="transform"
-                    attributeType="XML"
-                    type="rotate"
-                    from="0 12 12"
-                    to="360 12 12"
-                    dur="1s"
-                    repeatCount="indefinite"
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading-icon">
+            <circle class="loading-circle" cx="12" cy="12" r="3"/>
+            <path class="loading-wave" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10">
+                <animate attributeName="d" 
+                    dur="1.5s" 
+                    repeatCount="indefinite" 
+                    values="
+                        M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10;
+                        M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10;
+                        M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"
                 />
-            </circle>
+            </path>
         </svg>`;
 
         // Wait for the audio to be ready
@@ -1310,3 +1424,151 @@ qualitySelectorStyles.textContent = `
     }
 `;
 document.head.appendChild(qualitySelectorStyles);
+
+// Add these styles for the loading animation
+const loadingStyles = document.createElement('style');
+loadingStyles.textContent = `
+    .loading-icon {
+        transform-origin: center;
+        animation: pulse 1s ease-in-out infinite;
+    }
+
+    .loading-circle {
+        fill: var(--accent-color);
+        animation: bounce 1s ease-in-out infinite;
+    }
+
+    .loading-wave {
+        stroke: currentColor;
+        stroke-linecap: round;
+        opacity: 0.5;
+        animation: wave 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(0.95); }
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-2px); }
+    }
+
+    @keyframes wave {
+        0% { 
+            transform: rotate(0deg);
+            opacity: 0.3;
+        }
+        50% { 
+            transform: rotate(180deg);
+            opacity: 0.6;
+        }
+        100% { 
+            transform: rotate(360deg);
+            opacity: 0.3;
+        }
+    }
+
+    .play-button svg {
+        transition: transform 0.2s ease;
+    }
+
+    .play-button:active svg {
+        transform: scale(0.9);
+    }
+
+    /* Update loading overlay animation */
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .loading-spinner:before,
+    .loading-spinner:after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        animation: ripple 1.5s ease-in-out infinite;
+    }
+
+    .loading-spinner:before {
+        width: 30px;
+        height: 30px;
+        background: var(--accent-color);
+        animation-delay: 0s;
+    }
+
+    .loading-spinner:after {
+        width: 20px;
+        height: 20px;
+        background: white;
+        animation-delay: 0.3s;
+    }
+
+    @keyframes ripple {
+        0% {
+            transform: scale(0.5);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.2);
+            opacity: 0.5;
+        }
+        100% {
+            transform: scale(0.5);
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(loadingStyles);
+
+// Also update the loading overlay animation
+const loadingOverlayStyles = document.createElement('style');
+loadingOverlayStyles.textContent = `
+    #loadingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        position: relative;
+    }
+
+    .loading-spinner:before {
+        content: '';
+        box-sizing: border-box;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: loading-spin 0.8s ease-in-out infinite;
+    }
+
+    @keyframes loading-spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+`;
+document.head.appendChild(loadingOverlayStyles);
