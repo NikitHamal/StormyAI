@@ -26,11 +26,15 @@ marked.setOptions({
 const GPT4O_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4o';
 const GPT4O_MINI_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4omini';
 const GEMINI_REALTIME_API_URL = 'https://api.paxsenix.biz.id/ai/gemini-realtime';
-const GEMINI_FLASH_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
+const GEMINI_FLASH_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 const GEMINI_FLASH_API_KEY = 'AIzaSyChpeOa4gwBVR6ZcOa8KGQezB8iL7hJuI8';
 
 // API endpoints
 const FB_DOWNLOADER_API = 'https://api.paxsenix.biz.id/dl/fb';
+const SPOTIFY_SEARCH_API = 'https://api.paxsenix.biz.id/spotify/search';
+const SPOTIFY_TRACK_API = 'https://api.paxsenix.biz.id/spotify/track';
+const YT_SEARCH_API = 'https://api.paxsenix.biz.id/yt/search';
+const YT_DOWNLOAD_API = 'https://api.paxsenix.biz.id/yt/yttomp4';
 
 // Chat history management
 const MAX_HISTORY = 15;
@@ -61,6 +65,30 @@ chatInput.addEventListener('keydown', (e) => {
 
 sendButton.addEventListener('click', sendMessage);
 
+// Add command list
+const COMMANDS = {
+    download: {
+        usage: 'download [url]',
+        description: 'Download videos from supported platforms (Currently Facebook)',
+        example: 'download https://facebook.com/video/123'
+    },
+    imagine: {
+        usage: 'imagine [prompt]',
+        description: 'Generate images based on your description',
+        example: 'imagine a sunset over mountains'
+    },
+    play: {
+        usage: 'play [song name]',
+        description: 'Search and play music from Spotify',
+        example: 'play Shape of You'
+    },
+    help: {
+        usage: 'help [command]',
+        description: 'Show all available commands or get help for a specific command',
+        example: 'help play'
+    }
+};
+
 // Helper Functions
 function createMessageElement(content, isUser, options = null) {
     const messageDiv = document.createElement('div');
@@ -69,7 +97,14 @@ function createMessageElement(content, isUser, options = null) {
     // Add message content
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
-    messageContent.innerHTML = marked.parse(content);
+
+    // Check if content is HTML (for track list) or regular text
+    if (content.trim().startsWith('<div class="track-list">')) {
+        messageContent.innerHTML = content; // Directly set HTML for track list
+    } else {
+        messageContent.innerHTML = marked.parse(content); // Use marked for regular messages
+    }
+    
     messageDiv.appendChild(messageContent);
 
     // Only add download options if they exist and are valid
@@ -149,6 +184,40 @@ async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message) return;
 
+    // Command handling
+    const commandMatch = message.match(/^(\w+)(?:\s+(.*))?$/);
+    if (commandMatch) {
+        const command = commandMatch[1].toLowerCase();
+        const args = commandMatch[2] || '';
+
+        switch (command) {
+            case 'help':
+                handleHelpCommand(args);
+                return;
+            case 'download':
+                if (!args) {
+                    showCommandHelp('download');
+                    return;
+                }
+                await handleDownloadCommand(args);
+                return;
+            case 'play':
+                if (!args) {
+                    showCommandHelp('play');
+                    return;
+                }
+                await handlePlayCommand(args);
+                return;
+            case 'imagine':
+                if (!args) {
+                    showCommandHelp('imagine');
+                    return;
+                }
+                await handleImagineCommand(args);
+                return;
+        }
+    }
+
     // Check rate limiting only for non-Gemini models
     if (currentModel !== 'gemini_flash') {
         const now = Date.now();
@@ -180,29 +249,6 @@ async function sendMessage() {
         }
         return false;
     };
-
-    // Check if it's a download command
-    if (message.toLowerCase().startsWith('download ')) {
-        let url = message.slice(9).trim();
-        url = cleanUrl(url); // Clean the URL
-        
-        // Check for valid URL format
-        if (!isValidUrl(url)) {
-            appendMessage('Please provide a valid URL', false);
-            return;
-        }
-
-        // Check for social media platforms
-        const platform = detectSocialPlatform(url);
-        if (platform === 'facebook') {
-            await handleFacebookDownload(url);
-        } else if (platform) {
-            appendMessage(`${platform} video downloader is not available yet.`, false);
-        } else {
-            appendMessage('Unsupported URL. Please provide a Facebook video link.', false);
-        }
-        return;
-    }
 
     // Check if the message contains URLs
     const urlRegex = /(https?:\/\/[^\s<>)"']+)/g;
@@ -677,3 +723,570 @@ appendMessage = function(content, isUser, options = null, saveToHistory = true) 
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 };
+
+// Command handlers
+function handleHelpCommand(args) {
+    if (!args) {
+        // Show all commands
+        const commandList = Object.entries(COMMANDS).map(([name, info]) => {
+            return `**/${name}** - ${info.description}\n\`${info.usage}\``;
+        }).join('\n\n');
+        
+        appendMessage(`Available Commands:\n\n${commandList}`, false);
+    } else {
+        showCommandHelp(args);
+    }
+}
+
+function showCommandHelp(commandName) {
+    const command = COMMANDS[commandName];
+    if (!command) {
+        appendMessage(`Command "${commandName}" not found. Type \`help\` to see all commands.`, false);
+        return;
+    }
+
+    const helpMessage = `**/${commandName}**\n${command.description}\n\nUsage: \`${command.usage}\`\nExample: \`${command.example}\``;
+    appendMessage(helpMessage, false);
+}
+
+// First, add these styles at the beginning of your file with other styles
+const trackListStyles = document.createElement('style');
+trackListStyles.textContent = `
+    .track-list {
+        margin: 12px 0;
+    }
+
+    .track-item {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .track-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .track-thumb {
+        width: 60px;
+        height: 60px;
+        border-radius: 6px;
+        object-fit: cover;
+    }
+
+    .track-info {
+        flex: 1;
+        min-width: 0;
+        padding-right: 8px;
+    }
+
+    .track-name {
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.95rem;
+        line-height: 1.3;
+    }
+
+    .track-artist, .track-duration {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .play-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: var(--accent-color);
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 0;
+        transition: all 0.2s ease;
+    }
+
+    .play-button:active {
+        transform: scale(0.95);
+    }
+
+    .play-button svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .quality-selector {
+        margin: 8px 0;
+        padding: 12px;
+        background: var(--background-secondary);
+        border-radius: 8px;
+    }
+
+    .quality-options {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .quality-option {
+        padding: 10px;
+        border-radius: 6px;
+        background: var(--background-primary);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .quality-option:active {
+        background: var(--accent-color);
+        color: white;
+        border-color: var(--accent-color);
+    }
+
+    .progress-bar {
+        height: 4px;
+        background: var(--border-color);
+        border-radius: 2px;
+        margin: 8px 0;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: var(--accent-color);
+        border-radius: 2px;
+        width: 0;
+        transition: width 0.1s linear;
+    }
+
+    .time-display {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+
+    @media (max-width: 768px) {
+        .track-thumb {
+            width: 50px;
+            height: 50px;
+        }
+
+        .track-name {
+            font-size: 0.9rem;
+        }
+
+        .play-button {
+            width: 36px;
+            height: 36px;
+        }
+
+        .play-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .quality-options {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        }
+
+        .quality-option {
+            padding: 8px;
+        }
+    }
+`;
+document.head.appendChild(trackListStyles);
+
+// Add these constants
+let currentlyPlaying = null;
+
+// Update the handlePlayCommand function
+async function handlePlayCommand(query) {
+    showLoading();
+    try {
+        const response = await fetch(`${YT_SEARCH_API}?q=${encodeURIComponent(query)}&type=video`);
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.message || 'Failed to search videos');
+        }
+
+        if (!data.results || data.results.length === 0) {
+            appendMessage('No videos found for your search.', false);
+            return;
+        }
+
+        const videos = data.results.slice(0, 5);
+        const trackListHtml = `
+            <div class="track-list">
+                ${videos.map(video => `
+                    <div class="track-item">
+                        <div class="track-header">
+                            <img class="track-thumb" 
+                                src="${video.thumbnails[0].url}" 
+                                alt="${video.title}">
+                            <div class="track-info">
+                                <div class="track-name">${video.title}</div>
+                                <div class="track-artist">${video.channelName}</div>
+                                <div class="track-duration">${video.viewCount}</div>
+                            </div>
+                            <button class="play-button" data-video-id="${video.videoId}" onclick="showQualitySelection('${video.videoId}')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="player-${video.videoId}" class="audio-player">
+                            <div class="quality-selector">
+                                <div class="quality-options"></div>
+                            </div>
+                            <div class="player-controls">
+                                <div class="progress-bar">
+                                    <div class="progress-bar-fill"></div>
+                                </div>
+                                <div class="time-display">
+                                    <span class="current-time">0:00</span>
+                                    <span class="duration">0:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message';
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <p>Here are the top results for "${query}":</p>
+                ${trackListHtml}
+            </div>
+        `;
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    } catch (error) {
+        console.error('Error searching videos:', error);
+        appendMessage(`Error: ${error.message}`, false);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function showQualitySelection(videoId) {
+    const player = document.getElementById(`player-${videoId}`);
+    const button = document.querySelector(`[data-video-id="${videoId}"]`);
+    const currentAudio = window.currentAudio;
+
+    // If this track is already playing/paused, toggle play/pause
+    if (currentlyPlaying === videoId && currentAudio) {
+        togglePlay(videoId);
+        return;
+    }
+
+    try {
+        showLoading();
+        const response = await fetch(`${YT_DOWNLOAD_API}?url=https://www.youtube.com/watch?v=${videoId}`);
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.message || 'Failed to get audio streams');
+        }
+
+        // Clear existing options
+        player.querySelector('.quality-options').innerHTML = '';
+
+        // Process all audio options
+        const audioOptions = data.audio?.map(stream => {
+            // Extract quality info from name
+            let quality = '';
+            if (stream.name.includes('128Kbps')) {
+                quality = '128 Kbps';
+            } else if (stream.name.includes('160Kbps')) {
+                quality = '160 Kbps';
+            } else if (stream.name.includes('70Kbps')) {
+                quality = '70 Kbps';
+            } else if (stream.name.includes('50Kbps')) {
+                quality = '50 Kbps';
+            } else {
+                quality = 'Standard Quality';
+            }
+
+            return {
+                url: stream.url,
+                quality,
+                size: stream.size
+            };
+        }).filter(option => option.quality !== 'Standard Quality');
+
+        // Sort options by quality (highest first)
+        audioOptions.sort((a, b) => {
+            const getKbps = (quality) => parseInt(quality.split(' ')[0]) || 0;
+            return getKbps(b.quality) - getKbps(a.quality);
+        });
+
+        if (audioOptions?.length > 0) {
+            audioOptions.forEach(option => {
+                const optionElement = document.createElement('div');
+                optionElement.className = 'quality-option';
+                optionElement.onclick = () => playSelectedQuality(videoId, option.url);
+                optionElement.innerHTML = `
+                    <div class="quality-name">${option.quality}</div>
+                    <div class="quality-size">${option.size}</div>
+                `;
+                player.querySelector('.quality-options').appendChild(optionElement);
+            });
+            player.querySelector('.quality-selector').style.display = 'block';
+        } else {
+            // If no options found, try to play the first available audio stream
+            const firstAudio = data.audio?.[0];
+            if (firstAudio) {
+                playSelectedQuality(videoId, firstAudio.url);
+            } else {
+                throw new Error('No suitable audio stream found');
+            }
+        }
+
+    } catch (error) {
+        console.error('Error getting audio streams:', error);
+        appendMessage(`Error: ${error.message}`, false);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function playSelectedQuality(videoId, audioUrl) {
+    if (!audioUrl) return;
+
+    const player = document.getElementById(`player-${videoId}`);
+    const button = document.querySelector(`[data-video-id="${videoId}"]`);
+    const currentAudio = window.currentAudio;
+    
+    // Stop any currently playing track
+    if (currentAudio) {
+        currentAudio.pause();
+        const oldPlayer = document.getElementById(`player-${currentlyPlaying}`);
+        const oldButton = document.querySelector(`[data-video-id="${currentlyPlaying}"]`);
+        if (oldPlayer) oldPlayer.classList.remove('active');
+        if (oldButton) {
+            oldButton.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>`;
+        }
+    }
+
+    try {
+        // Create and configure audio element
+        const audio = new Audio();
+        
+        // Set up error handling before setting source
+        audio.onerror = (e) => {
+            console.error('Audio error:', e);
+            appendMessage('Error playing audio. Please try another quality or track.', false);
+            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>`;
+            player.classList.remove('active');
+        };
+
+        // Create a promise to handle audio loading
+        const loadPromise = new Promise((resolve, reject) => {
+            audio.addEventListener('canplaythrough', () => resolve(), { once: true });
+            audio.addEventListener('error', (e) => reject(e), { once: true });
+        });
+
+        // Configure audio properties
+        audio.preload = 'auto';
+        audio.src = audioUrl;
+
+        // Update UI to show loading state
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="30 30">
+                <animateTransform
+                    attributeName="transform"
+                    attributeType="XML"
+                    type="rotate"
+                    from="0 12 12"
+                    to="360 12 12"
+                    dur="1s"
+                    repeatCount="indefinite"
+                />
+            </circle>
+        </svg>`;
+
+        // Wait for the audio to be ready
+        await loadPromise;
+        
+        window.currentAudio = audio;
+        currentlyPlaying = videoId;
+
+        audio.addEventListener('ended', () => {
+            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>`;
+            player.classList.remove('active');
+            currentlyPlaying = null;
+        });
+
+        // Update UI
+        player.classList.add('active');
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>`;
+
+        // Start playing
+        try {
+            await audio.play();
+        } catch (playError) {
+            if (playError.name === 'NotAllowedError') {
+                appendMessage('Please interact with the page first to enable audio playback.', false);
+            }
+            throw playError;
+        }
+
+        // Update progress bar and time display
+        audio.addEventListener('timeupdate', () => {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            player.querySelector('.progress-bar-fill').style.width = `${progress}%`;
+            player.querySelector('.current-time').textContent = formatTime(audio.currentTime);
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            player.querySelector('.duration').textContent = formatTime(audio.duration);
+        });
+
+        // Handle progress bar clicks
+        const progressBar = player.querySelector('.progress-bar');
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            audio.currentTime = pos * audio.duration;
+        });
+
+    } catch (error) {
+        console.error('Error playing video:', error);
+        appendMessage(`Error: ${error.message}`, false);
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>`;
+        player.classList.remove('active');
+        currentlyPlaying = null;
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Update the togglePlay function to handle play/pause correctly
+async function togglePlay(videoId) {
+    const player = document.getElementById(`player-${videoId}`);
+    const button = document.querySelector(`[data-video-id="${videoId}"]`);
+    const currentAudio = window.currentAudio;
+    
+    if (currentlyPlaying === videoId && currentAudio) {
+        if (currentAudio.paused) {
+            await currentAudio.play();
+            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>`;
+        } else {
+            currentAudio.pause();
+            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>`;
+        }
+        return;
+    }
+
+    // Rest of the existing playSelectedQuality function...
+}
+
+// Update the styles for the quality selector grid
+const qualitySelectorStyles = document.createElement('style');
+qualitySelectorStyles.textContent = `
+    .quality-selector {
+        margin: 8px 0;
+        padding: 8px;
+        background: var(--background-secondary);
+        border-radius: 8px;
+        display: none;
+    }
+
+    .quality-options {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+
+    .quality-option {
+        padding: 10px;
+        border-radius: 6px;
+        background: var(--background-primary);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+
+    .quality-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+
+    .quality-size {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .quality-option:active {
+        background: var(--accent-color);
+    }
+    
+    .quality-option:active .quality-name,
+    .quality-option:active .quality-size {
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .quality-selector {
+            margin: 8px 0;
+            padding: 6px;
+        }
+
+        .quality-options {
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        }
+
+        .quality-option {
+            padding: 8px;
+        }
+
+        .quality-name {
+            font-size: 0.85rem;
+        }
+
+        .quality-size {
+            font-size: 0.75rem;
+        }
+    }
+`;
+document.head.appendChild(qualitySelectorStyles);
