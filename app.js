@@ -1979,3 +1979,222 @@ document.head.insertAdjacentHTML('beforeend', `
 // Add iOS scroll bounce fix
 document.body.style.overscrollBehavior = 'none';
 chatMessages.style.overscrollBehavior = 'contain';
+
+// Add these constants at the top of your file
+const SPEECH_RECOGNITION = window.SpeechRecognition || window.webkitSpeechRecognition;
+const hasSpeechRecognition = !!SPEECH_RECOGNITION;
+
+// Update the chat input wrapper styles
+const micStyles = document.createElement('style');
+micStyles.textContent = `
+    .chat-input-container {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        padding: 12px 16px;
+        background: var(--background-primary);
+        border-top: 1px solid var(--border-color);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+
+    .chat-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+        background: var(--background-secondary);
+        border-radius: 24px;
+        padding: 8px 8px 8px 16px;
+        border: 1px solid var(--border-color);
+    }
+
+    #chat-input {
+        flex: 1;
+        min-width: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        line-height: 1.4;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    #chat-input:focus {
+        outline: none;
+    }
+
+    .mic-button {
+        padding: 8px;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+
+    .mic-button:hover {
+        background: rgba(var(--accent-color-rgb), 0.1);
+    }
+
+    .mic-button.recording {
+        color: #ff4444;
+        background: rgba(255, 68, 68, 0.1);
+    }
+
+    .mic-button svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    #send-button {
+        padding: 8px;
+        background: var(--accent-color);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+    }
+
+    #send-button svg {
+        width: 20px;
+        height: 20px;
+        margin-left: 2px;
+    }
+
+    #send-button:hover {
+        opacity: 0.9;
+        transform: scale(1.05);
+    }
+
+    #send-button:active {
+        transform: scale(0.95);
+    }
+
+    /* Hide mic button if speech recognition is not supported */
+    .mic-button.hidden {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .chat-input-container {
+            padding: 8px 12px;
+        }
+
+        .chat-input-wrapper {
+            padding: 6px 6px 6px 12px;
+        }
+
+        #chat-input {
+            font-size: 0.9rem;
+        }
+
+        .mic-button, #send-button {
+            width: 32px;
+            height: 32px;
+        }
+
+        .mic-button svg, #send-button svg {
+            width: 18px;
+            height: 18px;
+        }
+    }
+
+    @supports (-webkit-touch-callout: none) {
+        .chat-input-container {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        }
+    }
+`;
+
+// Remove any existing mic styles
+const existingMicStyles = document.querySelector('style[data-mic-styles]');
+if (existingMicStyles) {
+    existingMicStyles.remove();
+}
+
+// Add the data attribute to identify the styles
+micStyles.setAttribute('data-mic-styles', '');
+document.head.appendChild(micStyles);
+
+// Wrap the chat input in a container
+const chatInputContainer = chatInput.parentElement;
+const inputWrapper = document.createElement('div');
+inputWrapper.className = 'chat-input-wrapper';
+chatInputContainer.insertBefore(inputWrapper, chatInput);
+inputWrapper.appendChild(chatInput);
+
+// Add microphone button
+const micButton = document.createElement('button');
+micButton.className = `mic-button ${!hasSpeechRecognition ? 'hidden' : ''}`;
+micButton.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+`;
+inputWrapper.insertBefore(micButton, chatInput);
+
+// Initialize speech recognition if available
+let recognition = null;
+if (hasSpeechRecognition) {
+    recognition = new SPEECH_RECOGNITION();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US'; // You can make this configurable
+
+    recognition.onstart = () => {
+        micButton.classList.add('recording');
+    };
+
+    recognition.onend = () => {
+        micButton.classList.remove('recording');
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+            .map(result => result[0].transcript)
+            .join('');
+        
+        chatInput.value = transcript;
+        chatInput.style.height = 'auto';
+        chatInput.style.height = chatInput.scrollHeight + 'px';
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        micButton.classList.remove('recording');
+        if (event.error === 'not-allowed') {
+            alert('Please enable microphone access to use speech-to-text.');
+        }
+    };
+
+    // Handle mic button click
+    micButton.addEventListener('click', () => {
+        if (micButton.classList.contains('recording')) {
+            recognition.stop();
+        } else {
+            chatInput.value = '';
+            recognition.start();
+        }
+    });
+}
