@@ -1984,53 +1984,41 @@ chatMessages.style.overscrollBehavior = 'contain';
 const SPEECH_RECOGNITION = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSpeechRecognition = !!SPEECH_RECOGNITION;
 
-// Update the chat input wrapper styles
+// Update the chat input container styles
 const micStyles = document.createElement('style');
 micStyles.textContent = `
     .chat-input-container {
         display: flex;
         gap: 12px;
-        align-items: flex-end;
+        align-items: center;
         padding: 12px 16px;
         background: var(--background-primary);
         border-top: 1px solid var(--border-color);
         position: fixed;
         bottom: 0;
-        left: 0;
-        right: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 800px;
+        margin: 0 auto;
     }
 
     .chat-input-wrapper {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 8px;
         flex: 1;
-        min-width: 0;
         background: var(--background-secondary);
         border-radius: 24px;
-        padding: 8px 8px 8px 16px;
+        padding: 6px;
         border: 1px solid var(--border-color);
-    }
-
-    #chat-input {
-        flex: 1;
-        min-width: 0;
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: var(--text-primary);
-        font-size: 0.95rem;
-        line-height: 1.4;
-        max-height: 150px;
-        overflow-y: auto;
-    }
-
-    #chat-input:focus {
-        outline: none;
+        min-height: 48px;
     }
 
     .mic-button {
-        padding: 8px;
+        width: 36px;
+        height: 36px;
+        padding: 0;
         background: transparent;
         border: none;
         border-radius: 50%;
@@ -2038,18 +2026,8 @@ micStyles.textContent = `
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
         color: var(--text-secondary);
         flex-shrink: 0;
-    }
-
-    .mic-button:hover {
-        background: rgba(var(--accent-color-rgb), 0.1);
-    }
-
-    .mic-button.recording {
-        color: #ff4444;
-        background: rgba(255, 68, 68, 0.1);
     }
 
     .mic-button svg {
@@ -2057,8 +2035,29 @@ micStyles.textContent = `
         height: 20px;
     }
 
+    #chat-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        line-height: 24px;
+        padding: 6px 8px;
+        margin: 0;
+        min-height: 24px;
+        max-height: 150px;
+        resize: none;
+        outline: none;
+        align-self: center;
+    }
+
     #send-button {
-        padding: 8px;
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+        padding: 0;
+        margin: 0;
         background: var(--accent-color);
         border: none;
         border-radius: 50%;
@@ -2067,10 +2066,7 @@ micStyles.textContent = `
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
         flex-shrink: 0;
-        width: 36px;
-        height: 36px;
     }
 
     #send-button svg {
@@ -2079,47 +2075,33 @@ micStyles.textContent = `
         margin-left: 2px;
     }
 
-    #send-button:hover {
-        opacity: 0.9;
-        transform: scale(1.05);
-    }
-
-    #send-button:active {
-        transform: scale(0.95);
-    }
-
-    /* Hide mic button if speech recognition is not supported */
-    .mic-button.hidden {
-        display: none;
-    }
-
     @media (max-width: 768px) {
         .chat-input-container {
-            padding: 8px 12px;
+            width: 95%;
+            padding: 8px 0;
         }
 
         .chat-input-wrapper {
-            padding: 6px 6px 6px 12px;
+            min-height: 44px;
+            padding: 4px;
         }
 
         #chat-input {
             font-size: 0.9rem;
+            line-height: 22px;
+            padding: 5px 8px;
         }
 
         .mic-button, #send-button {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            min-height: 34px;
         }
 
         .mic-button svg, #send-button svg {
             width: 18px;
             height: 18px;
-        }
-    }
-
-    @supports (-webkit-touch-callout: none) {
-        .chat-input-container {
-            padding-bottom: calc(12px + env(safe-area-inset-bottom));
         }
     }
 `;
