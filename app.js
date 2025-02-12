@@ -615,7 +615,6 @@ function cleanUrl(url) {
             .replace(/\\\//g, '/') // Replace escaped forward slashes
             .replace(/&amp;/g, '&') // Replace HTML entities
             .replace(/\[.*?\]/g, '') // Remove square brackets and content
-            .replace(/[[\]]/g, '') // Remove any remaining brackets
             .replace(/[.,;!]$/, ''); // Remove trailing punctuation
 
         // Handle mobile redirects
@@ -1783,13 +1782,14 @@ imageModalStyles.textContent = `
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.9);
-        z-index: 2000;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         box-sizing: border-box;
-        -webkit-backdrop-filter: blur(5px);
-        backdrop-filter: blur(5px);
+        -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         touch-action: none;
+        z-index: 2000;
     }
 
     .image-modal.active {
@@ -2161,10 +2161,6 @@ if (hasSpeechRecognition) {
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
 
-        // Check for 'send' command
-        if (transcript.toLowerCase().includes('send')) {
-            sendMessage(); // Call sendMessage function
-        }
     };
 
     recognition.onerror = (event) => {
