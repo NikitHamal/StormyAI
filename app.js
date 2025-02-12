@@ -19,17 +19,54 @@ marked.setOptions({
     gfm: true
 });
 
-// Constants
-const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
-const API_KEY_STORAGE_KEY = 'AIzaSyACk4YyXgd_VOvBlFWV8r17LuwkT1iGfmg';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
+const QWEN_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GPT4O_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4o';
+const GPT4O_MINI_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4omini';
+const GEMINI_REALTIME_API_URL = 'https://api.paxsenix.biz.id/ai/gemini-realtime';
+const GEMINI_MODEL_NAME = 'gemini';
+const QWEN_MODEL_NAME = 'qwen/qwen2.5-vl-72b-instruct:free';
+const GPT4O_MODEL_NAME = 'gpt4o';
+const GPT4O_MINI_MODEL_NAME = 'gpt4omini';
+const GEMINI_REALTIME_MODEL_NAME = 'gemini_realtime';
 
-// State
-let apiKey = localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+// API Key Storage Keys
+const GEMINI_API_KEY_STORAGE_KEY = 'gemini_api_key';
+const QWEN_API_KEY_STORAGE_KEY = 'qwen_api_key';
+const qwenAPI = "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";
 
-// Initialize
-if (apiKey) {
-    apiKeyInput.value = apiKey;
+let apiKey = '';
+let currentModel = localStorage.getItem('current_model') || GEMINI_MODEL_NAME;
+modelSelector.value = currentModel;
+
+// Initialize API Keys from Local Storage
+const loadApiKey = () => {
+    if (currentModel === GPT4O_MODEL_NAME || currentModel === GPT4O_MINI_MODEL_NAME || currentModel === GEMINI_REALTIME_MODEL_NAME) {
+        apiKey = '';
+        apiKeyInput.style.display = 'none';
+        saveKeyButton.style.display = 'none';
+    } else {
+        apiKey = localStorage.getItem(currentModel === GEMINI_MODEL_NAME ? GEMINI_API_KEY_STORAGE_KEY : QWEN_API_KEY_STORAGE_KEY) || '';
+        apiKeyInput.style.display = 'block';
+        saveKeyButton.style.display = 'block';
+    }
+};
+
+// Show/Hide Image Input based on Model
+function toggleImageInput() {
+    imageInput.style.display = currentModel === QWEN_MODEL_NAME ? 'block' : 'none';
 }
+
+// Initial setup
+loadApiKey();
+toggleImageInput();
+
+modelSelector.addEventListener('change', () => {
+    currentModel = modelSelector.value;
+    localStorage.setItem('current_model', currentModel);
+    toggleImageInput();
+    loadApiKey();
+});
 
 // Event Listeners
 saveKeyButton.addEventListener('click', () => {
