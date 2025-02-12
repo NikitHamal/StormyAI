@@ -553,3 +553,126 @@ function showLoading() {
 function hideLoading() {
     loadingOverlay.style.display = 'none';
 }
+
+// Add these optimizations after the existing style element creation
+const mobileOptimizationStyles = document.createElement('style');
+mobileOptimizationStyles.textContent = `
+    @media (max-width: 768px) {
+        /* Chat container optimizations */
+        .chat-container {
+            padding-bottom: 80px; /* More space for input area */
+        }
+
+        /* Message optimizations */
+        .message {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        /* Code block optimizations */
+        .message-content pre {
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        /* Input area optimizations */
+        .chat-input-container {
+            padding: 0.75rem;
+            background-color: var(--background-primary);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        #chat-input {
+            font-size: 1rem;
+            padding: 0.5rem 2rem 0.5rem 0.5rem;
+            max-height: 120px; /* Smaller max height on mobile */
+        }
+
+        /* Model selector optimization */
+        .model-dropdown {
+            font-size: 0.7rem;
+            padding: 3px 6px;
+            top: -25px;
+        }
+
+        /* Send button optimization */
+        #send-button {
+            right: 1.25rem;
+            bottom: 1.5rem;
+            padding: 0.35rem;
+        }
+
+        /* Download options optimization */
+        .download-options {
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .download-options select,
+        .download-button {
+            width: 100%;
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* iOS specific optimizations */
+    @supports (-webkit-touch-callout: none) {
+        .chat-input-container {
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+        }
+
+        #chat-input {
+            font-size: 16px; /* Prevents iOS zoom on focus */
+        }
+    }
+`;
+document.head.appendChild(mobileOptimizationStyles);
+
+// Add touch event handling for better mobile interaction
+document.addEventListener('DOMContentLoaded', () => {
+    // Prevent double-tap zoom on buttons
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            button.click();
+        });
+    });
+
+    // Improve scroll behavior on mobile
+    chatMessages.style.WebkitOverflowScrolling = 'touch';
+
+    // Adjust textarea behavior on mobile
+    chatInput.addEventListener('focus', () => {
+        // Scroll to bottom when keyboard appears
+        setTimeout(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, 300);
+    });
+
+    // Handle mobile keyboard hide
+    window.addEventListener('resize', () => {
+        if (document.activeElement === chatInput) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    });
+});
+
+// Optimize the existing appendMessage function for mobile
+const originalAppendMessage = appendMessage;
+appendMessage = function(content, isUser, options = null, saveToHistory = true) {
+    originalAppendMessage(content, isUser, options, saveToHistory);
+    
+    // Ensure smooth scrolling on mobile
+    requestAnimationFrame(() => {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+};
