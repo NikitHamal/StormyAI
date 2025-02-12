@@ -12,9 +12,6 @@ const videoDuration = document.getElementById('video-duration');
 const qualitySelector = document.getElementById('quality-selector');
 const downloadButton = document.getElementById('download-button');
 const micStatus = document.getElementById('mic-status');
-const confirmDialog = document.getElementById('confirmDialog');
-const confirmYes = document.getElementById('confirmYes');
-const confirmNo = document.getElementById('confirmNo');
 
 // Add this at the beginning of your JavaScript file, after the DOM Elements section
 const toolbarStyles = document.createElement('style');
@@ -2254,35 +2251,3 @@ const ordinalMap = {
     'fourth': 4,
     'fifth': 5
 };
-
-// Add confirmation dialog functionality
-const confirmDialog = document.getElementById('confirmDialog');
-const confirmYes = document.getElementById('confirmYes');
-const confirmNo = document.getElementById('confirmNo');
-
-function showConfirmDialog(message) {
-    return new Promise((resolve) => {
-        chatInput.value = message;
-        confirmDialog.style.display = 'flex';
-        
-        const handleYes = () => {
-            confirmDialog.style.display = 'none';
-            cleanup();
-            resolve(true);
-        };
-        
-        const handleNo = () => {
-            confirmDialog.style.display = 'none';
-            cleanup();
-            resolve(false);
-        };
-
-        confirmYes.addEventListener('click', handleYes);
-        confirmNo.addEventListener('click', handleNo);
-        
-        const cleanup = () => {
-            confirmYes.removeEventListener('click', handleYes);
-            confirmNo.removeEventListener('click', handleNo);
-        };
-    });
-}
