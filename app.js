@@ -2164,9 +2164,31 @@ if (hasSpeechRecognition) {
         const transcript = Array.from(event.results)
             .map(result => result[0].transcript)
             .join('').trim(); // Trim whitespace
-        
+
         const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim(); // Remove 'send' and trim whitespace
-        
+
+        // Handle model selection command
+        if (transcript.toLowerCase().startsWith('switch model to')) {
+            const modelName = transcript.toLowerCase().replace('switch model to', '').trim();
+            const modelDropdown = document.getElementById('modelDropdown'); // Replace with actual ID
+
+            if (modelDropdown) {
+                let found = false;
+                for (const option of modelDropdown.options) {
+                    if (option.textContent.toLowerCase() === modelName) {
+                        modelDropdown.value = option.value;
+                        modelDropdown.dispatchEvent(new Event('change')); // Trigger selection event
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    alert(`Model "${modelName}" not found.`);
+                }
+            }
+            return;
+        }
+
         // Handle style selection command
         if (transcript.toLowerCase().startsWith('choose style')) {
             const style = transcript.toLowerCase().replace('choose style', '').trim();
