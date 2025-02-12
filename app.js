@@ -156,6 +156,9 @@ async function sendMessage() {
 
     // Function to handle URL detection and download
     const handleUrlMessage = async (url) => {
+        // Clean the URL first
+        url = cleanUrl(url);
+        
         // Check for valid URL format
         if (!isValidUrl(url)) {
             return false;
@@ -175,7 +178,8 @@ async function sendMessage() {
 
     // Check if it's a download command
     if (message.toLowerCase().startsWith('download ')) {
-        const url = message.slice(9).trim();
+        let url = message.slice(9).trim();
+        url = cleanUrl(url); // Clean the URL
         
         // Check for valid URL format
         if (!isValidUrl(url)) {
@@ -196,7 +200,7 @@ async function sendMessage() {
     }
 
     // Check if the message contains URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?:\/\/[^\s<>)"']+)/g;
     const urls = message.match(urlRegex);
     
     if (urls) {
@@ -316,15 +320,34 @@ function isValidUrl(string) {
 
 function detectSocialPlatform(url) {
     try {
+        // Clean up the URL first
+        url = cleanUrl(url);
+        
         const urlObj = new URL(url);
         const hostname = urlObj.hostname.toLowerCase();
+        const pathname = urlObj.pathname.toLowerCase();
 
-        // Facebook
-        if (hostname.includes('facebook.com') || hostname.includes('fb.watch')) {
+        // Facebook - handle various formats
+        if (hostname.includes('facebook.com') || 
+            hostname.includes('fb.watch') ||
+            hostname.includes('fb.me') ||
+            hostname.includes('m.facebook.com') ||
+            hostname.includes('web.facebook.com') ||
+            hostname.includes('l.facebook.com') ||
+            hostname.includes('mbasic.facebook.com')) {
+            
+            // Skip non-video Facebook URLs
+            if (pathname.includes('/profile.php') || 
+                pathname === '/' || 
+                pathname.includes('/home')) {
+                return null;
+            }
+            
             return 'facebook';
         }
+        
         // Instagram
-        if (hostname.includes('instagram.com')) {
+        if (hostname.includes('instagram.com') || hostname.includes('ig.me')) {
             return 'Instagram';
         }
         // YouTube
@@ -367,6 +390,67 @@ function detectSocialPlatform(url) {
         return null;
     } catch (_) {
         return null;
+    }
+}
+
+function cleanUrl(url) {
+    try {
+        // Remove any leading/trailing whitespace
+        url = url.trim();
+
+        // Handle iOS-specific URL encoding
+        try {
+            url = decodeURIComponent(url);
+        } catch (e) {
+            // If decoding fails, try with the original URL
+            console.log('Decoding failed, using original URL');
+        }
+
+        // Handle iOS-specific URL patterns
+        if (url.includes('sharer.php')) {
+            // Extract URL from Facebook sharer
+            const urlParam = new URLSearchParams(url.split('?')[1]).get('u');
+            if (urlParam) url = urlParam;
+        }
+
+        // Handle URLs that are wrapped in other URLs (common in iOS sharing)
+        const urlMatch = url.match(/https?:\/\/[^\s<>)"']+/g);
+        if (urlMatch && urlMatch.length > 0) {
+            // Get the last URL in case it's wrapped
+            url = urlMatch[urlMatch.length - 1];
+        }
+
+        // Handle special iOS cases
+        url = url
+            .replace(/\\u002F/g, '/') // Replace unicode forward slashes
+            .replace(/\\\//g, '/') // Replace escaped forward slashes
+            .replace(/&amp;/g, '&') // Replace HTML entities
+            .replace(/\[.*?\]/g, '') // Remove square brackets and content
+            .replace(/[[\]]/g, '') // Remove any remaining brackets
+            .replace(/[.,;!]$/, ''); // Remove trailing punctuation
+
+        // Handle mobile redirects
+        if (url.includes('l.facebook.com/l.php')) {
+            const urlParam = new URLSearchParams(url.split('?')[1]).get('u');
+            if (urlParam) url = urlParam;
+        }
+
+        // Convert mobile URLs to regular URLs
+        url = url
+            .replace('m.facebook.com', 'www.facebook.com')
+            .replace('web.facebook.com', 'www.facebook.com')
+            .replace('mbasic.facebook.com', 'www.facebook.com');
+
+        // If it's a Facebook URL, keep parameters (they're important for video URLs)
+        if (!url.includes('facebook.com') && !url.includes('fb.watch')) {
+            url = url.split('?')[0].split('#')[0];
+        }
+
+        console.log('Cleaned URL:', url); // Debug log
+        return url;
+    } catch (e) {
+        console.error('Error cleaning URL:', e);
+        return url;
     }
 }
 
