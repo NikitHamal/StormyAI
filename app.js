@@ -37,7 +37,7 @@ const MAX_HISTORY = 15;
 let chatHistory = [];
 
 // Rate limiting
-const RATE_LIMIT_DELAY = 1000; // 1 second between requests
+const RATE_LIMIT_DELAY = 2000; // 2 seconds between requests for non-Gemini models
 let lastRequestTime = 0;
 
 let currentModel = localStorage.getItem('current_model') || 'gemini_flash';
@@ -64,7 +64,7 @@ sendButton.addEventListener('click', sendMessage);
 // Helper Functions
 function createMessageElement(content, isUser, options = null) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
+    messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
     
     // Add message content
     const messageContent = document.createElement('div');
@@ -72,10 +72,8 @@ function createMessageElement(content, isUser, options = null) {
     messageContent.innerHTML = marked.parse(content);
     messageDiv.appendChild(messageContent);
 
-    // Add download options if provided
-    if (options && Array.isArray(options) && options.length > 0) {
-        console.log('Creating download options UI with options:', options); // Debug log
-        
+    // Only add download options if they exist and are valid
+    if (options && Array.isArray(options) && options.length > 0 && options.some(opt => opt.downloadUrl)) {
         const downloadOptions = document.createElement('div');
         downloadOptions.className = 'download-options';
         
@@ -88,38 +86,35 @@ function createMessageElement(content, isUser, options = null) {
         defaultOption.textContent = 'Select Quality';
         qualitySelector.appendChild(defaultOption);
         
-        // Add quality options
-        options.forEach((quality, index) => {
-            if (!quality.downloadUrl) {
-                console.log('Skipping invalid quality option:', quality);
-                return;
+        // Add only valid quality options
+        options.forEach(quality => {
+            if (quality && quality.downloadUrl) {
+                const option = document.createElement('option');
+                option.value = quality.downloadUrl;
+                option.textContent = quality.quality || 'Default Quality';
+                qualitySelector.appendChild(option);
             }
-            console.log('Adding quality option:', quality);
-            const option = document.createElement('option');
-            option.value = quality.downloadUrl;
-            option.textContent = quality.quality;
-            qualitySelector.appendChild(option);
         });
 
-        const downloadButton = document.createElement('button');
-        downloadButton.className = 'download-button';
-        downloadButton.textContent = 'Download';
-        
-        // Add click handler
-        downloadButton.onclick = () => {
-            const selectedUrl = qualitySelector.value;
-            if (!selectedUrl) {
-                appendMessage('Please select a quality option first', false, null, false);
-                return;
-            }
-            handleDownload(selectedUrl);
-        };
+        // Only add the download UI if we have valid options
+        if (qualitySelector.children.length > 1) { // More than just the default option
+            const downloadButton = document.createElement('button');
+            downloadButton.className = 'download-button';
+            downloadButton.textContent = 'Download';
+            
+            downloadButton.onclick = () => {
+                const selectedUrl = qualitySelector.value;
+                if (!selectedUrl) {
+                    appendMessage('Please select a quality option first', false, null, false);
+                    return;
+                }
+                handleDownload(selectedUrl);
+            };
 
-        downloadOptions.appendChild(qualitySelector);
-        downloadOptions.appendChild(downloadButton);
-        messageDiv.appendChild(downloadOptions);
-    } else {
-        console.log('No download options provided or empty array'); // Debug log
+            downloadOptions.appendChild(qualitySelector);
+            downloadOptions.appendChild(downloadButton);
+            messageDiv.appendChild(downloadOptions);
+        }
     }
 
     return messageDiv;
@@ -153,6 +148,16 @@ function appendMessage(content, isUser, options = null, saveToHistory = true) {
 async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message) return;
+
+    // Check rate limiting only for non-Gemini models
+    if (currentModel !== 'gemini_flash') {
+        const now = Date.now();
+        const timeSinceLastRequest = now - lastRequestTime;
+        if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
+            const waitTime = RATE_LIMIT_DELAY - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
 
     // Function to handle URL detection and download
     const handleUrlMessage = async (url) => {
@@ -213,14 +218,6 @@ async function sendMessage() {
         }
     }
 
-    // Check rate limiting
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
-    if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
-        const waitTime = RATE_LIMIT_DELAY - timeSinceLastRequest;
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-
     chatInput.value = '';
     chatInput.style.height = 'auto';
 
@@ -275,7 +272,11 @@ ${message}`
             };
         }
 
-        lastRequestTime = Date.now();
+        // Update lastRequestTime only for non-Gemini models
+        if (currentModel !== 'gemini_flash') {
+            lastRequestTime = Date.now();
+        }
+
         const response = await fetch(apiUrl, options);
 
         if (!response.ok) {
