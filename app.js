@@ -154,6 +154,25 @@ async function sendMessage() {
     const message = chatInput.value.trim();
     if (!message) return;
 
+    // Function to handle URL detection and download
+    const handleUrlMessage = async (url) => {
+        // Check for valid URL format
+        if (!isValidUrl(url)) {
+            return false;
+        }
+
+        // Check for social media platforms
+        const platform = detectSocialPlatform(url);
+        if (platform === 'facebook') {
+            await handleFacebookDownload(url);
+            return true;
+        } else if (platform) {
+            appendMessage(`Detected ${platform} URL. To download videos, use the 'download' command. Note: Only Facebook downloads are currently supported.`, false);
+            return false;
+        }
+        return false;
+    };
+
     // Check if it's a download command
     if (message.toLowerCase().startsWith('download ')) {
         const url = message.slice(9).trim();
@@ -174,6 +193,20 @@ async function sendMessage() {
             appendMessage('Unsupported URL. Please provide a Facebook video link.', false);
         }
         return;
+    }
+
+    // Check if the message contains URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = message.match(urlRegex);
+    
+    if (urls) {
+        for (const url of urls) {
+            // If it's a supported social media URL, handle it
+            const wasHandled = await handleUrlMessage(url);
+            if (wasHandled) {
+                return; // URL was handled, don't send to AI
+            }
+        }
     }
 
     // Check rate limiting
