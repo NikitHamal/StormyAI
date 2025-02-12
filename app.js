@@ -2143,10 +2143,11 @@ inputWrapper.insertBefore(micButton, chatInput);
 // Initialize speech recognition if available
 let recognition = null;
 if (hasSpeechRecognition) {
-    recognition = new SPEECH_RECOGNITION();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US'; // You can make this configurable
+    recognition = new webkitSpeechRecognition() || new SpeechRecognition();
+recognition.continuous = true;  // Keeps listening longer
+recognition.interimResults = true;  // Captures partial speech
+recognition.lang = 'en-US'; 
+recognition.maxAlternatives = 5;  // Offers more possible results for better accuracy
 
     recognition.onstart = () => {
         micButton.classList.add('recording');
