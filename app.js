@@ -66,6 +66,8 @@ toolbarStyles.textContent = `
 
     .chat-input-container {
         position: fixed;
+        display: flex;
+        justify-content: center;
         bottom: 0;
         left: 0;
         right: 0;
