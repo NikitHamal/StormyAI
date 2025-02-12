@@ -39,8 +39,8 @@ toolbarStyles.textContent = `
     }
 
     .toolbar-logo {
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
         border-radius: 8px;
         object-fit: cover;
     }
