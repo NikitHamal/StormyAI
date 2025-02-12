@@ -8,10 +8,10 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 
 // Constants
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
-const API_KEY_STORAGE_KEY = 'AIzaSyACk4YyXgd_VOvBlFWV8r17LuwkT1iGfmg';
+const Gemini = 'AIzaSyACk4YyXgd_VOvBlFWV8r17LuwkT1iGfmg';
 
 // State
-let apiKey = localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+let apiKey = Gemini;
 
 // Initialize
 if (apiKey) {
