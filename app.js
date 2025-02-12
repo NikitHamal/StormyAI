@@ -1091,6 +1091,11 @@ async function playSelectedQuality(videoId, audioUrl) {
         // Create and configure audio element
         const audio = new Audio();
         
+        // iOS specific settings
+        audio.controls = false; // Disable default controls
+        audio.playsinline = true; // Enable inline playback
+        audio.preload = 'metadata'; // Lighter preload for iOS
+        
         // Set up error handling before setting source
         audio.onerror = (e) => {
             console.error('Audio error:', e);
@@ -1103,13 +1108,13 @@ async function playSelectedQuality(videoId, audioUrl) {
 
         // Create a promise to handle audio loading
         const loadPromise = new Promise((resolve, reject) => {
-            audio.addEventListener('canplaythrough', () => resolve(), { once: true });
+            audio.addEventListener('loadeddata', () => resolve(), { once: true });
             audio.addEventListener('error', (e) => reject(e), { once: true });
         });
 
-        // Configure audio properties
-        audio.preload = 'auto';
+        // Set source and load
         audio.src = audioUrl;
+        await audio.load(); // Explicitly load for iOS
 
         // Update UI to show loading state
         button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1132,14 +1137,6 @@ async function playSelectedQuality(videoId, audioUrl) {
         window.currentAudio = audio;
         currentlyPlaying = videoId;
 
-        audio.addEventListener('ended', () => {
-            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>`;
-            player.classList.remove('active');
-            currentlyPlaying = null;
-        });
-
         // Update UI
         player.classList.add('active');
         button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1147,15 +1144,34 @@ async function playSelectedQuality(videoId, audioUrl) {
             <rect x="14" y="4" width="4" height="16"></rect>
         </svg>`;
 
-        // Start playing
+        // Start playing with user interaction handling
         try {
-            await audio.play();
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                await playPromise;
+            }
         } catch (playError) {
+            console.error('Play error:', playError);
             if (playError.name === 'NotAllowedError') {
-                appendMessage('Please interact with the page first to enable audio playback.', false);
+                appendMessage('Please tap to enable audio playback', false);
+                // Add tap-to-play for iOS
+                const tapToPlay = () => {
+                    audio.play().catch(console.error);
+                    document.removeEventListener('touchend', tapToPlay);
+                };
+                document.addEventListener('touchend', tapToPlay);
             }
             throw playError;
         }
+
+        // Set up event listeners
+        audio.addEventListener('ended', () => {
+            button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>`;
+            player.classList.remove('active');
+            currentlyPlaying = null;
+        });
 
         // Update progress bar and time display
         audio.addEventListener('timeupdate', () => {
@@ -1168,13 +1184,17 @@ async function playSelectedQuality(videoId, audioUrl) {
             player.querySelector('.duration').textContent = formatTime(audio.duration);
         });
 
-        // Handle progress bar clicks
+        // Handle progress bar clicks and touches
         const progressBar = player.querySelector('.progress-bar');
-        progressBar.addEventListener('click', (e) => {
+        const updateProgress = (e) => {
             const rect = progressBar.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
+            const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const pos = (x - rect.left) / rect.width;
             audio.currentTime = pos * audio.duration;
-        });
+        };
+
+        progressBar.addEventListener('click', updateProgress);
+        progressBar.addEventListener('touchstart', updateProgress);
 
     } catch (error) {
         console.error('Error playing video:', error);
