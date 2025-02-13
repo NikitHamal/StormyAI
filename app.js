@@ -2168,17 +2168,20 @@ inputWrapper.insertBefore(micButton, chatInput);
 
 // Initialize speech recognition if available
 let recognition = null;
+let isProcessingVoice = false; // Add flag to prevent duplicate processing
+
 if (hasSpeechRecognition) {
     recognition = new webkitSpeechRecognition() || new SpeechRecognition();
-recognition.continuous = true;  // Keeps listening longer
-recognition.interimResults = true;  // Captures partial speech
-recognition.lang = 'en-US'; 
-recognition.maxAlternatives = 5;  // Offers more possible results for better accuracy
+    recognition.continuous = false;  // Change to false to prevent multiple triggers
+    recognition.interimResults = false;  // Change to false for more stable results
+    recognition.lang = 'en-US'; 
+    recognition.maxAlternatives = 1;  // Reduce alternatives to prevent duplicates
 
     recognition.onstart = () => {
         micButton.classList.add('recording');
         micStatus.style.display = 'block';
         micStatus.textContent = 'Microphone Active';
+        isProcessingVoice = false; // Reset flag when starting new recording
     };
 
     recognition.onend = () => {
@@ -2188,23 +2191,23 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
     };
 
     recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-            .map(result => result[0].transcript)
-            .join('').trim(); // Trim whitespace
+        if (isProcessingVoice) return; // Prevent duplicate processing
+        isProcessingVoice = true;
 
-        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim(); // Remove 'send' and trim whitespace
+        const transcript = event.results[0][0].transcript.trim();
+        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim();
 
         // Handle model selection command
         if (transcript.toLowerCase().startsWith('switch model to')) {
             const modelName = transcript.toLowerCase().replace('switch model to', '').trim();
-            const modelDropdown = document.getElementById('modelDropdown'); // Replace with actual ID
+            const modelDropdown = document.getElementById('modelDropdown');
 
             if (modelDropdown) {
                 let found = false;
                 for (const option of modelDropdown.options) {
                     if (option.textContent.toLowerCase() === modelName) {
                         modelDropdown.value = option.value;
-                        modelDropdown.dispatchEvent(new Event('change')); // Trigger selection event
+                        modelDropdown.dispatchEvent(new Event('change'));
                         found = true;
                         break;
                     }
@@ -2213,6 +2216,7 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
                     alert(`Model "${modelName}" not found.`);
                 }
             }
+            recognition.stop();
             return;
         }
 
@@ -2222,6 +2226,7 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
             const styleButton = document.querySelector(`.style-option[data-style="${style}"]`);
             if (styleButton) {
                 styleButton.click();
+                recognition.stop();
                 return;
             }
         }
@@ -2235,6 +2240,7 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
                 const playButton = document.querySelector(`.track-item:nth-child(${videoNumber}) .play-button`);
                 if (playButton) {
                     playButton.click();
+                    recognition.stop();
                     return;
                 }
             }
@@ -2249,6 +2255,7 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
                 const qualityText = option.querySelector('.quality-name').textContent;
                 if (qualityText.toLowerCase().includes(requestedQuality)) {
                     option.click();
+                    recognition.stop();
                     return;
                 }
             }
@@ -2262,6 +2269,7 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
                 sendMessage();
                 setTimeout(() => isSending = false, 1000);
             }
+            recognition.stop();
             return;
         }
 
@@ -2269,6 +2277,14 @@ recognition.maxAlternatives = 5;  // Offers more possible results for better acc
         chatInput.value = transcript;
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
+        
+        // Stop recognition after processing
+        recognition.stop();
+        
+        // Reset processing flag after a short delay
+        setTimeout(() => {
+            isProcessingVoice = false;
+        }, 500);
     };
 
     recognition.onerror = (event) => {
