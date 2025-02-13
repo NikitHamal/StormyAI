@@ -209,8 +209,73 @@ const COMMANDS = {
         usage: 'help [command]',
         description: 'Show all available commands or get help for a specific command',
         example: 'help play'
+    },
+    'commands': {
+        usage: 'commands [list|add|remove]',
+        description: 'Manage custom voice commands',
+        example: 'commands list'
     }
 };
+
+// Add after the COMMANDS constant
+let customVoiceCommands = JSON.parse(localStorage.getItem('customVoiceCommands')) || {
+    'open youtube': {
+        action: 'url',
+        value: 'https://youtube.com',
+        description: 'Opens YouTube in a new tab'
+    },
+    'open google': {
+        action: 'url',
+        value: 'https://google.com',
+        description: 'Opens Google in a new tab'
+    },
+    'dark mode': {
+        action: 'theme',
+        value: 'dark',
+        description: 'Switches to dark theme'
+    },
+    'light mode': {
+        action: 'theme',
+        value: 'light',
+        description: 'Switches to light theme'
+    }
+};
+
+// Add command types and their handlers
+const commandTypes = {
+    url: (value) => window.open(value, '_blank'),
+    theme: (value) => document.body.setAttribute('data-theme', value),
+    message: (value) => {
+        chatInput.value = value;
+        sendMessage();
+    },
+    function: (value) => {
+        try {
+            new Function(value)();
+        } catch (error) {
+            console.error('Error executing custom command:', error);
+        }
+    }
+};
+
+// Add voice command management functions
+function addCustomCommand(trigger, action, value, description) {
+    customVoiceCommands[trigger.toLowerCase()] = {
+        action,
+        value,
+        description
+    };
+    saveCustomCommands();
+}
+
+function removeCustomCommand(trigger) {
+    delete customVoiceCommands[trigger.toLowerCase()];
+    saveCustomCommands();
+}
+
+function saveCustomCommands() {
+    localStorage.setItem('customVoiceCommands', JSON.stringify(customVoiceCommands));
+}
 
 // Helper Functions
 function createMessageElement(content, isUser, options = null) {
@@ -279,10 +344,70 @@ function createMessageElement(content, isUser, options = null) {
 }
 
 function appendMessage(content, isUser, options = null, saveToHistory = true) {
-    const messageElement = createMessageElement(content, isUser, options);
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
     
+    // Add message content
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+
+    // Check if content is HTML form or special content
+    if (content.trim().startsWith('<div class="command-form">') || 
+        content.trim().startsWith('<div class="track-list">')) {
+        messageContent.innerHTML = content; // Directly set HTML for forms and track lists
+    } else {
+        messageContent.innerHTML = marked.parse(content); // Use marked for regular messages
+    }
+    
+    messageDiv.appendChild(messageContent);
+
+    // Only add download options if they exist and are valid
+    if (options && Array.isArray(options) && options.length > 0 && options.some(opt => opt.downloadUrl)) {
+        const downloadOptions = document.createElement('div');
+        downloadOptions.className = 'download-options';
+        
+        const qualitySelector = document.createElement('select');
+        qualitySelector.className = 'model-dropdown';
+        
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select Quality';
+        qualitySelector.appendChild(defaultOption);
+        
+        // Add only valid quality options
+        options.forEach(quality => {
+            if (quality && quality.downloadUrl) {
+                const option = document.createElement('option');
+                option.value = quality.downloadUrl;
+                option.textContent = quality.quality || 'Default Quality';
+                qualitySelector.appendChild(option);
+            }
+        });
+
+        // Only add the download UI if we have valid options
+        if (qualitySelector.children.length > 1) { // More than just the default option
+            const downloadButton = document.createElement('button');
+            downloadButton.className = 'download-button';
+            downloadButton.textContent = 'Download';
+            
+            downloadButton.onclick = () => {
+                const selectedUrl = qualitySelector.value;
+                if (!selectedUrl) {
+                    appendMessage('Please select a quality option first', false, null, false);
+                    return;
+                }
+                handleDownload(selectedUrl);
+            };
+
+            downloadOptions.appendChild(qualitySelector);
+            downloadOptions.appendChild(downloadButton);
+            messageDiv.appendChild(downloadOptions);
+        }
+    }
+
     // Add click handler for images
-    const images = messageElement.querySelectorAll('img');
+    const images = messageDiv.querySelectorAll('img');
     images.forEach(img => {
         img.style.cursor = 'pointer';
         img.addEventListener('click', () => {
@@ -293,7 +418,7 @@ function appendMessage(content, isUser, options = null, saveToHistory = true) {
         });
     });
     
-    chatMessages.appendChild(messageElement);
+    chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     // Save to history if needed
@@ -344,6 +469,13 @@ async function sendMessage() {
                     return;
                 }
                 await handleImagineCommand(args);
+                return;
+            case 'commands':
+                if (!args) {
+                    showCommandHelp('commands');
+                    return;
+                }
+                handleCommandsCommand(args);
                 return;
         }
     }
@@ -2316,6 +2448,40 @@ if (hasSpeechRecognition) {
                 return true;
             }
 
+            // Check for commands management
+            if (transcript.startsWith('commands')) {
+                const args = transcript.replace('commands', '').trim().split(' ');
+                const subCommand = args[0];
+
+                switch (subCommand) {
+                    case 'list':
+                        showCommandsList();
+                        break;
+                    case 'add':
+                        showAddCommandForm();
+                        break;
+                    case 'remove':
+                        showRemoveCommandForm();
+                        break;
+                    default:
+                        appendMessage('Available commands management options: list, add, remove', false);
+                }
+                recognition.stop();
+                return true;
+            }
+
+            // Check for custom commands
+            for (const [trigger, command] of Object.entries(customVoiceCommands)) {
+                if (transcript.includes(trigger)) {
+                    const handler = commandTypes[command.action];
+                    if (handler) {
+                        handler(command.value);
+                        recognition.stop();
+                        return true;
+                    }
+                }
+            }
+
             return false; // No command matched
         };
 
@@ -2461,3 +2627,199 @@ micButtonStyles.textContent = `
     }
 `;
 document.head.appendChild(micButtonStyles);
+
+// Add UI for managing commands
+function showCommandsList() {
+    const defaultCommands = Object.entries(COMMANDS).map(([name, info]) => 
+        `**Built-in Command:** /${name}\n${info.description}\n`
+    ).join('\n');
+
+    const customCommands = Object.entries(customVoiceCommands).map(([trigger, command]) =>
+        `**Custom Command:** "${trigger}"\n${command.description}\n`
+    ).join('\n');
+
+    appendMessage(`**Available Commands**\n\n${defaultCommands}\n**Custom Voice Commands**\n\n${customCommands}`, false);
+}
+
+function showAddCommandForm() {
+    const form = `
+        <div class="command-form">
+            <h3>Add Custom Voice Command</h3>
+            <div class="form-group">
+                <label>Trigger Phrase:</label>
+                <input type="text" id="commandTrigger" placeholder="e.g., open twitter">
+            </div>
+            <div class="form-group">
+                <label>Action Type:</label>
+                <select id="commandType">
+                    <option value="url">Open URL</option>
+                    <option value="message">Send Message</option>
+                    <option value="theme">Change Theme</option>
+                    <option value="function">Custom Function</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Action Value:</label>
+                <input type="text" id="commandValue" placeholder="e.g., https://twitter.com">
+            </div>
+            <div class="form-group">
+                <label>Description:</label>
+                <input type="text" id="commandDescription" placeholder="e.g., Opens Twitter in new tab">
+            </div>
+            <div class="form-buttons">
+                <button onclick="saveNewCommand()">Save Command</button>
+                <button onclick="cancelAddCommand()">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    appendMessage(form, false);
+}
+
+function showRemoveCommandForm() {
+    const commands = Object.keys(customVoiceCommands);
+    if (commands.length === 0) {
+        appendMessage('No custom commands to remove.', false);
+        return;
+    }
+
+    const form = `
+        <div class="command-form">
+            <h3>Remove Custom Voice Command</h3>
+            <div class="form-group">
+                <label>Select Command to Remove:</label>
+                <select id="commandToRemove">
+                    ${commands.map(cmd => `<option value="${cmd}">${cmd}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-buttons">
+                <button onclick="removeSelectedCommand()">Remove Command</button>
+                <button onclick="cancelRemoveCommand()">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    appendMessage(form, false);
+}
+
+// Add these functions to handle the forms
+function saveNewCommand() {
+    const trigger = document.getElementById('commandTrigger').value;
+    const type = document.getElementById('commandType').value;
+    const value = document.getElementById('commandValue').value;
+    const description = document.getElementById('commandDescription').value;
+
+    if (!trigger || !type || !value || !description) {
+        appendMessage('Please fill in all fields.', false);
+        return;
+    }
+
+    addCustomCommand(trigger, type, value, description);
+    appendMessage(`Command "${trigger}" has been added successfully!`, false);
+    document.querySelector('.command-form').remove();
+}
+
+function cancelAddCommand() {
+    document.querySelector('.command-form').remove();
+}
+
+function removeSelectedCommand() {
+    const select = document.getElementById('commandToRemove');
+    const commandToRemove = select.value;
+    
+    removeCustomCommand(commandToRemove);
+    appendMessage(`Command "${commandToRemove}" has been removed.`, false);
+    document.querySelector('.command-form').remove();
+}
+
+function cancelRemoveCommand() {
+    document.querySelector('.command-form').remove();
+}
+
+// Add styles for the command management UI
+const commandFormStyles = document.createElement('style');
+commandFormStyles.textContent = `
+    .command-form {
+        background: var(--background-secondary);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 10px 0;
+    }
+
+    .command-form h3 {
+        margin: 0 0 15px 0;
+        color: var(--text-primary);
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--text-primary);
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--background-primary);
+        color: var(--text-primary);
+    }
+
+    .form-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .form-buttons button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .form-buttons button:last-child {
+        background: var(--background-primary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    @media (max-width: 768px) {
+        .command-form {
+            padding: 15px;
+        }
+
+        .form-buttons button {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+    }
+`;
+document.head.appendChild(commandFormStyles);
+
+// Update handleCommandsCommand function to handle subcommands
+function handleCommandsCommand(args) {
+    const [subCommand, ...rest] = args.split(' ');
+    
+    switch (subCommand) {
+        case 'list':
+            showCommandsList();
+            break;
+        case 'add':
+            showAddCommandForm();
+            break;
+        case 'remove':
+            showRemoveCommandForm();
+            break;
+        default:
+            appendMessage('Available commands management options: list, add, remove', false);
+    }
+}
