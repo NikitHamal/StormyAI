@@ -1732,45 +1732,71 @@ ${MIDJOURNEY_STYLES.map((style, index) => `${index + 1}. ${style}`).join('\n')}`
 // Add styles for the style selector
 const styleSelectorStyles = document.createElement('style');
 styleSelectorStyles.textContent = `
+.style-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Flexible grid */
+    gap: 12px;
+    padding: 12px;
+    margin: 10px 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Style Option */
+.style-option {
+    padding: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--background-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    text-align: center;
+    text-transform: capitalize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    user-select: none;
+}
+
+/* Hover & Active Effects */
+.style-option:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.style-option:active {
+    transform: scale(0.95);
+}
+
+/* Mobile-Friendly Adjustments */
+@media (max-width: 768px) {
     .style-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 8px;
-        margin: 10px 0;
+        display: flex;
+        overflow-x: auto; /* Horizontal scroll for better usability */
+        gap: 10px;
+        padding: 10px;
+        scrollbar-width: none; /* Hide scrollbar for a clean look */
     }
 
     .style-option {
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        background: var(--background-primary);
-        color: var(--text-primary);
-        cursor: pointer;
-        transition: all 0.2s ease;
+        flex: 0 0 auto;
+        min-width: 120px;
+        padding: 8px;
         font-size: 0.9rem;
-        text-transform: capitalize;
+        border-radius: 6px;
+        white-space: nowrap; /* Prevents text from wrapping */
     }
 
-    .style-option:hover {
-        background: var(--accent-color);
-        color: white;
-        border-color: var(--accent-color);
+    /* Hide scrollbar for mobile */
+    .style-selector::-webkit-scrollbar {
+        display: none;
     }
-
-    .style-option:active {
-        transform: scale(0.98);
-    }
-
-    @media (max-width: 768px) {
-        .style-selector {
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        }
-
-        .style-option {
-            padding: 6px 10px;
-            font-size: 0.85rem;
-        }
-    }
+}
 `;
 document.head.appendChild(styleSelectorStyles);
 
@@ -2142,16 +2168,20 @@ inputWrapper.insertBefore(micButton, chatInput);
 
 // Initialize speech recognition if available
 let recognition = null;
+let isProcessingVoice = false; // Add flag to prevent duplicate processing
+
 if (hasSpeechRecognition) {
-    recognition = new SPEECH_RECOGNITION();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US'; // You can make this configurable
+    recognition = new webkitSpeechRecognition() || new SpeechRecognition();
+    recognition.continuous = false;  // Change to false to prevent multiple triggers
+    recognition.interimResults = false;  // Change to false for more stable results
+    recognition.lang = 'en-US'; 
+    recognition.maxAlternatives = 1;  // Reduce alternatives to prevent duplicates
 
     recognition.onstart = () => {
         micButton.classList.add('recording');
         micStatus.style.display = 'block';
         micStatus.textContent = 'Microphone Active';
+        isProcessingVoice = false; // Reset flag when starting new recording
     };
 
     recognition.onend = () => {
@@ -2161,18 +2191,42 @@ if (hasSpeechRecognition) {
     };
 
     recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-            .map(result => result[0].transcript)
-            .join('').trim(); // Trim whitespace
-        
-        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim(); // Remove 'send' and trim whitespace
-        
+        if (isProcessingVoice) return; // Prevent duplicate processing
+        isProcessingVoice = true;
+
+        const transcript = event.results[0][0].transcript.trim();
+        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim();
+
+        // Handle model selection command
+        if (transcript.toLowerCase().startsWith('switch model to')) {
+            const modelName = transcript.toLowerCase().replace('switch model to', '').trim();
+            const modelDropdown = document.getElementById('modelDropdown');
+
+            if (modelDropdown) {
+                let found = false;
+                for (const option of modelDropdown.options) {
+                    if (option.textContent.toLowerCase() === modelName) {
+                        modelDropdown.value = option.value;
+                        modelDropdown.dispatchEvent(new Event('change'));
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    alert(`Model "${modelName}" not found.`);
+                }
+            }
+            recognition.stop();
+            return;
+        }
+
         // Handle style selection command
         if (transcript.toLowerCase().startsWith('choose style')) {
             const style = transcript.toLowerCase().replace('choose style', '').trim();
             const styleButton = document.querySelector(`.style-option[data-style="${style}"]`);
             if (styleButton) {
                 styleButton.click();
+                recognition.stop();
                 return;
             }
         }
@@ -2186,6 +2240,7 @@ if (hasSpeechRecognition) {
                 const playButton = document.querySelector(`.track-item:nth-child(${videoNumber}) .play-button`);
                 if (playButton) {
                     playButton.click();
+                    recognition.stop();
                     return;
                 }
             }
@@ -2200,6 +2255,7 @@ if (hasSpeechRecognition) {
                 const qualityText = option.querySelector('.quality-name').textContent;
                 if (qualityText.toLowerCase().includes(requestedQuality)) {
                     option.click();
+                    recognition.stop();
                     return;
                 }
             }
@@ -2213,6 +2269,7 @@ if (hasSpeechRecognition) {
                 sendMessage();
                 setTimeout(() => isSending = false, 1000);
             }
+            recognition.stop();
             return;
         }
 
@@ -2220,6 +2277,14 @@ if (hasSpeechRecognition) {
         chatInput.value = transcript;
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
+        
+        // Stop recognition after processing
+        recognition.stop();
+        
+        // Reset processing flag after a short delay
+        setTimeout(() => {
+            isProcessingVoice = false;
+        }, 500);
     };
 
     recognition.onerror = (event) => {
