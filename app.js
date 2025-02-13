@@ -159,6 +159,26 @@ const LLAMA3_API_URL = 'https://api.paxsenix.biz.id/ai/llama3';
 // Update the API endpoint constant
 const MIDJOURNEY_API_URL = 'https://api.paxsenix.biz.id/ai-image/midjourney';
 
+// Add the new API endpoint constants after the existing ones
+const QWEN2_CODER_API_URL = 'https://api.paxsenix.biz.id/ai/qwen2Coder';
+const GEMMA_API_URL = 'https://api.paxsenix.biz.id/ai/gemma';
+const LLAMA3_70B_API_URL = 'https://api.paxsenix.biz.id/ai/llama3-1-70B';
+const QWEN2_API_URL = 'https://api.paxsenix.biz.id/ai/qwen2';
+
+// Add new API endpoint constants
+const DOWNLOADER_ENDPOINTS = {
+    instagram: 'https://api.paxsenix.biz.id/dl/ig',
+    tiktok: 'https://api.paxsenix.biz.id/dl/tiktok',
+    threads: 'https://api.paxsenix.biz.id/dl/threads',
+    pinterest: 'https://api.paxsenix.biz.id/dl/pinterest',
+    youtube_video: 'https://api.paxsenix.biz.id/dl/ytmp4',
+    youtube_audio: 'https://api.paxsenix.biz.id/dl/ytmp3',
+    twitter: 'https://api.paxsenix.biz.id/dl/twitter',
+    reddit: 'https://api.paxsenix.biz.id/dl/reddit',
+    aio: 'https://api.paxsenix.biz.id/dl/aioTik',
+    facebook: 'https://api.paxsenix.biz.id/dl/fb' // existing endpoint
+};
+
 // Chat history management
 const MAX_HISTORY = 15;
 let chatHistory = [];
@@ -343,6 +363,7 @@ function createMessageElement(content, isUser, options = null) {
     return messageDiv;
 }
 
+// Update the appendMessage function's download options handling
 function appendMessage(content, isUser, options = null, saveToHistory = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
@@ -354,56 +375,65 @@ function appendMessage(content, isUser, options = null, saveToHistory = true) {
     // Check if content is HTML form or special content
     if (content.trim().startsWith('<div class="command-form">') || 
         content.trim().startsWith('<div class="track-list">')) {
-        messageContent.innerHTML = content; // Directly set HTML for forms and track lists
+        messageContent.innerHTML = content;
     } else {
-        messageContent.innerHTML = marked.parse(content); // Use marked for regular messages
+        messageContent.innerHTML = marked.parse(content);
     }
     
     messageDiv.appendChild(messageContent);
 
-    // Only add download options if they exist and are valid
-    if (options && Array.isArray(options) && options.length > 0 && options.some(opt => opt.downloadUrl)) {
-        const downloadOptions = document.createElement('div');
-        downloadOptions.className = 'download-options';
-        
-        const qualitySelector = document.createElement('select');
-        qualitySelector.className = 'model-dropdown';
-        
-        // Add default option
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select Quality';
-        qualitySelector.appendChild(defaultOption);
-        
-        // Add only valid quality options
-        options.forEach(quality => {
-            if (quality && quality.downloadUrl) {
-                const option = document.createElement('option');
-                option.value = quality.downloadUrl;
-                option.textContent = quality.quality || 'Default Quality';
-                qualitySelector.appendChild(option);
-            }
-        });
+    // Add download options if available
+    if (options && Array.isArray(options) && options.length > 0) {
+        const downloadContainer = document.createElement('div');
+        downloadContainer.className = 'download-container';
 
-        // Only add the download UI if we have valid options
-        if (qualitySelector.children.length > 1) { // More than just the default option
+        options.forEach((option, index) => {
+            const downloadOption = document.createElement('div');
+            downloadOption.className = 'download-option';
+
+            const qualityInfo = document.createElement('div');
+            qualityInfo.className = 'download-option-info';
+            
+            const qualityText = document.createElement('span');
+            qualityText.className = 'download-option-quality';
+            qualityText.textContent = option.quality;
+            qualityInfo.appendChild(qualityText);
+
+            if (option.type || option.size) {
+                const detailsText = document.createElement('span');
+                detailsText.className = 'download-option-details';
+                const details = [];
+                if (option.type) details.push(option.type);
+                if (option.size) details.push(option.size);
+                detailsText.textContent = ` (${details.join(' • ')})`;
+                qualityInfo.appendChild(detailsText);
+            }
+
+            downloadOption.appendChild(qualityInfo);
+
             const downloadButton = document.createElement('button');
             downloadButton.className = 'download-button';
-            downloadButton.textContent = 'Download';
+            downloadButton.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download
+            `;
             
             downloadButton.onclick = () => {
-                const selectedUrl = qualitySelector.value;
-                if (!selectedUrl) {
-                    appendMessage('Please select a quality option first', false, null, false);
-                    return;
+                if (option.downloadUrl) {
+                    handleDownload(option.downloadUrl);
+                    appendMessage(`Starting download in ${option.quality}...`, false, null, false);
                 }
-                handleDownload(selectedUrl);
             };
 
-            downloadOptions.appendChild(qualitySelector);
-            downloadOptions.appendChild(downloadButton);
-            messageDiv.appendChild(downloadOptions);
-        }
+            downloadOption.appendChild(downloadButton);
+            downloadContainer.appendChild(downloadOption);
+        });
+
+        messageDiv.appendChild(downloadContainer);
     }
 
     // Add click handler for images
@@ -421,7 +451,6 @@ function appendMessage(content, isUser, options = null, saveToHistory = true) {
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Save to history if needed
     if (saveToHistory) {
         chatHistory.push({
             content,
@@ -492,22 +521,16 @@ async function sendMessage() {
 
     // Function to handle URL detection and download
     const handleUrlMessage = async (url) => {
-        // Clean the URL first
         url = cleanUrl(url);
         
-        // Check for valid URL format
         if (!isValidUrl(url)) {
             return false;
         }
 
-        // Check for social media platforms
         const platform = detectSocialPlatform(url);
-        if (platform === 'facebook') {
-            await handleFacebookDownload(url);
+        if (platform) {
+            await handleDownloadRequest(url, platform);
             return true;
-        } else if (platform) {
-            appendMessage(`Detected ${platform} URL. To download videos, use the 'download' command. Note: Only Facebook downloads are currently supported.`, false);
-            return false;
         }
         return false;
     };
@@ -560,11 +583,19 @@ ${message}`
                     }]
                 })
             };
-        } else if (currentModel === 'claude_sonnet' || currentModel === 'mixtral' || currentModel === 'llama3') {
-            // Claude Sonnet, Mixtral, and Llama3 implementation (they use the same format)
+        } else if (currentModel === 'claude_sonnet' || currentModel === 'mixtral' || 
+                   currentModel === 'llama3' || currentModel === 'qwen2_coder' || 
+                   currentModel === 'gemma' || currentModel === 'llama3_70b' || 
+                   currentModel === 'qwen2') {
+            
+            // All these models use the same API format
             apiUrl = currentModel === 'claude_sonnet' ? `${CLAUDE_SONNET_API_URL}?text=${encodeURIComponent(message)}` :
                     currentModel === 'mixtral' ? `${MIXTRAL_API_URL}?text=${encodeURIComponent(message)}` :
-                    `${LLAMA3_API_URL}?text=${encodeURIComponent(message)}`;
+                    currentModel === 'llama3' ? `${LLAMA3_API_URL}?text=${encodeURIComponent(message)}` :
+                    currentModel === 'qwen2_coder' ? `${QWEN2_CODER_API_URL}?text=${encodeURIComponent(message)}` :
+                    currentModel === 'gemma' ? `${GEMMA_API_URL}?text=${encodeURIComponent(message)}` :
+                    currentModel === 'llama3_70b' ? `${LLAMA3_70B_API_URL}?text=${encodeURIComponent(message)}` :
+                    `${QWEN2_API_URL}?text=${encodeURIComponent(message)}`;
             
             options = {
                 method: 'GET',
@@ -642,73 +673,29 @@ function isValidUrl(string) {
     }
 }
 
+// Update the detectSocialPlatform function
 function detectSocialPlatform(url) {
     try {
-        // Clean up the URL first
         url = cleanUrl(url);
-        
         const urlObj = new URL(url);
         const hostname = urlObj.hostname.toLowerCase();
-        const pathname = urlObj.pathname.toLowerCase();
 
-        // Facebook - handle various formats
-        if (hostname.includes('facebook.com') || 
-            hostname.includes('fb.watch') ||
-            hostname.includes('fb.me') ||
-            hostname.includes('m.facebook.com') ||
-            hostname.includes('web.facebook.com') ||
-            hostname.includes('l.facebook.com') ||
-            hostname.includes('mbasic.facebook.com')) {
-            
-            // Skip non-video Facebook URLs
-            if (pathname.includes('/profile.php') || 
-                pathname === '/' || 
-                pathname.includes('/home')) {
-                return null;
+        // Platform detection patterns
+        const patterns = {
+            facebook: ['facebook.com', 'fb.watch', 'fb.me'],
+            instagram: ['instagram.com', 'instagr.am'],
+            tiktok: ['tiktok.com', 'vm.tiktok.com'],
+            threads: ['threads.net'],
+            pinterest: ['pinterest.com', 'pin.it'],
+            youtube: ['youtube.com', 'youtu.be'],
+            twitter: ['twitter.com', 'x.com'],
+            reddit: ['reddit.com']
+        };
+
+        for (const [platform, domains] of Object.entries(patterns)) {
+            if (domains.some(domain => hostname.includes(domain))) {
+                return platform;
             }
-            
-            return 'facebook';
-        }
-        
-        // Instagram
-        if (hostname.includes('instagram.com') || hostname.includes('ig.me')) {
-            return 'Instagram';
-        }
-        // YouTube
-        if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-            return 'YouTube';
-        }
-        // TikTok
-        if (hostname.includes('tiktok.com')) {
-            return 'TikTok';
-        }
-        // Twitter/X
-        if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
-            return 'Twitter/X';
-        }
-        // LinkedIn
-        if (hostname.includes('linkedin.com')) {
-            return 'LinkedIn';
-        }
-        // Reddit
-        if (hostname.includes('reddit.com')) {
-            return 'Reddit';
-        }
-        // Snapchat
-        if (hostname.includes('snapchat.com')) {
-            return 'Snapchat';
-        }
-        // Pinterest
-        if (hostname.includes('pinterest.com')) {
-            return 'Pinterest';
-        }
-        // Vimeo
-        if (hostname.includes('vimeo.com')) {
-            return 'Vimeo';
-        }
-        // Dailymotion
-        if (hostname.includes('dailymotion.com')) {
-            return 'Dailymotion';
         }
 
         return null;
@@ -717,59 +704,81 @@ function detectSocialPlatform(url) {
     }
 }
 
+// Update the cleanUrl function to better handle YouTube URLs
 function cleanUrl(url) {
     try {
-        // Remove any leading/trailing whitespace
         url = url.trim();
-
-        // Handle iOS-specific URL encoding
+        
         try {
             url = decodeURIComponent(url);
         } catch (e) {
-            // If decoding fails, try with the original URL
             console.log('Decoding failed, using original URL');
         }
 
-        // Handle iOS-specific URL patterns
-        if (url.includes('sharer.php')) {
-            // Extract URL from Facebook sharer
-            const urlParam = new URLSearchParams(url.split('?')[1]).get('u');
-            if (urlParam) url = urlParam;
+        // Handle YouTube URL formats
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            // Convert youtu.be URLs to youtube.com
+            if (url.includes('youtu.be/')) {
+                const videoId = url.split('youtu.be/')[1].split('?')[0];
+                url = `https://www.youtube.com/watch?v=${videoId}`;
+            }
+            
+            // Convert other YouTube URL formats to watch URL
+            if (url.includes('youtube.com')) {
+                const urlObj = new URL(url);
+                // Handle shorts
+                if (url.includes('/shorts/')) {
+                    const videoId = url.split('/shorts/')[1].split('?')[0];
+                    url = `https://www.youtube.com/watch?v=${videoId}`;
+                }
+                // Handle mobile/embed URLs
+                else if (urlObj.pathname !== '/watch') {
+                    const videoId = urlObj.pathname.split('/').pop();
+                    if (videoId) {
+                        url = `https://www.youtube.com/watch?v=${videoId}`;
+                    }
+                }
+            }
         }
 
-        // Handle URLs that are wrapped in other URLs (common in iOS sharing)
-        const urlMatch = url.match(/https?:\/\/[^\s<>)"']+/g);
-        if (urlMatch && urlMatch.length > 0) {
-            // Get the last URL in case it's wrapped
-            url = urlMatch[urlMatch.length - 1];
+        // Handle other platform-specific URL cleaning
+        if (url.includes('instagram.com')) {
+            url = url.split('?')[0]; // Remove query parameters
+        }
+        
+        if (url.includes('tiktok.com')) {
+            // Keep only the main TikTok URL part
+            const tiktokMatch = url.match(/(https?:\/\/[^\/]+\/[@\w]+\/[\w-]+)/);
+            if (tiktokMatch) {
+                url = tiktokMatch[1];
+            }
         }
 
-        // Handle special iOS cases
+        // General URL cleaning
         url = url
-            .replace(/\\u002F/g, '/') // Replace unicode forward slashes
-            .replace(/\\\//g, '/') // Replace escaped forward slashes
-            .replace(/&amp;/g, '&') // Replace HTML entities
-            .replace(/\[.*?\]/g, '') // Remove square brackets and content
-            .replace(/[.,;!]$/, ''); // Remove trailing punctuation
+            .replace(/\\u002F/g, '/')
+            .replace(/\\\//g, '/')
+            .replace(/&amp;/g, '&')
+            .replace(/\[.*?\]/g, '')
+            .replace(/[.,;!]$/, '');
 
-        // Handle mobile redirects
+        // Handle redirects
         if (url.includes('l.facebook.com/l.php')) {
             const urlParam = new URLSearchParams(url.split('?')[1]).get('u');
             if (urlParam) url = urlParam;
         }
 
-        // Convert mobile URLs to regular URLs
-        url = url
-            .replace('m.facebook.com', 'www.facebook.com')
-            .replace('web.facebook.com', 'www.facebook.com')
-            .replace('mbasic.facebook.com', 'www.facebook.com');
+        // Convert mobile URLs to desktop versions
+        const mobileToDesktop = {
+            'm.facebook.com': 'www.facebook.com',
+            'mobile.twitter.com': 'twitter.com',
+            'm.youtube.com': 'www.youtube.com'
+        };
 
-        // If it's a Facebook URL, keep parameters (they're important for video URLs)
-        if (!url.includes('facebook.com') && !url.includes('fb.watch')) {
-            url = url.split('?')[0].split('#')[0];
+        for (const [mobile, desktop] of Object.entries(mobileToDesktop)) {
+            url = url.replace(mobile, desktop);
         }
 
-        console.log('Cleaned URL:', url); // Debug log
         return url;
     } catch (e) {
         console.error('Error cleaning URL:', e);
@@ -777,64 +786,97 @@ function cleanUrl(url) {
     }
 }
 
-// Facebook Video Download Handler
-async function handleFacebookDownload(url) {
+// Update the handleDownloadRequest function to better handle responses
+async function handleDownloadRequest(url, platform) {
     showLoading();
     
     try {
-        appendMessage(`Processing Facebook video: ${url}`, false, null, false);
+        appendMessage(`Processing ${platform} content: ${url}`, false, null, false);
         
-        const response = await fetch(`${FB_DOWNLOADER_API}?url=${encodeURIComponent(url)}`);
-        const data = await response.json();
-
-        if (!response.ok || !data.ok) {
-            throw new Error('Failed to process video');
+        let endpoint = DOWNLOADER_ENDPOINTS[platform];
+        
+        // Special handling for YouTube
+        if (platform === 'youtube') {
+            const isAudioRequest = url.toLowerCase().includes('audio') || 
+                                 url.toLowerCase().includes('mp3');
+            endpoint = isAudioRequest ? 
+                DOWNLOADER_ENDPOINTS.youtube_audio : 
+                DOWNLOADER_ENDPOINTS.youtube_video;
         }
 
-        // Get all available download URLs
+        // Try platform-specific downloader first
+        let response = await fetch(`${endpoint}?url=${encodeURIComponent(url)}`);
+        let data = await response.json();
+
+        // If platform-specific fails, try AIO downloader as fallback
+        if (!response.ok || !data.ok) {
+            console.log('Platform-specific download failed, trying AIO...');
+            response = await fetch(`${DOWNLOADER_ENDPOINTS.aio}?url=${encodeURIComponent(url)}`);
+            data = await response.json();
+        }
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.message || 'Failed to process content');
+        }
+
+        // Normalize response data structure
         let downloadUrls = [];
+        
         if (data.links && Array.isArray(data.links)) {
-            downloadUrls = data.links;
+            downloadUrls = data.links.map(link => ({
+                quality: link.quality || link.label || 'Default Quality',
+                url: link.url || link,
+                type: link.type || 'video'
+            }));
         } else if (data.url && Array.isArray(data.url)) {
-            downloadUrls = data.url;
+            downloadUrls = data.url.map(url => ({
+                quality: url.quality || url.label || 'Default Quality',
+                url: url.url || url,
+                type: url.type || 'video'
+            }));
         } else if (typeof data.url === 'string') {
             downloadUrls = [{
                 quality: 'Default Quality',
-                url: data.url
+                url: data.url,
+                type: 'video'
             }];
+        } else if (data.medias && Array.isArray(data.medias)) {
+            downloadUrls = data.medias.map(media => ({
+                quality: media.quality || media.label || 'Default Quality',
+                url: media.url,
+                type: media.type || 'video',
+                size: media.size || null
+            }));
         }
 
         if (downloadUrls.length === 0) {
             throw new Error('No download options available');
         }
 
-        // Map and sort download options by quality
+        // Sort download options by quality
         const downloadOptions = downloadUrls
-            .map(item => ({
-                quality: item.quality || item.label || 'Default Quality',
-                downloadUrl: item.url || item.downloadUrl || item
-            }))
-            .filter(item => item.downloadUrl) // Filter out invalid URLs
+            .filter(item => item.url)
             .sort((a, b) => {
                 const getResolution = (quality) => {
-                    const match = quality.match(/(\d+)p/);
+                    const match = String(quality).match(/(\d+)p?/);
                     return match ? parseInt(match[1]) : 0;
                 };
                 return getResolution(b.quality) - getResolution(a.quality);
-            });
+            })
+            .map(item => ({
+                quality: item.quality,
+                downloadUrl: item.url,
+                type: item.type,
+                size: item.size
+            }));
 
-        if (downloadOptions.length === 0) {
-            throw new Error('No valid download URLs available');
-        }
+        // Show download options UI
+        const optionsMessage = `Available ${platform} download options:`;
+        appendMessage(optionsMessage, false, downloadOptions, false);
 
-        // Get highest quality URL
-        const bestQuality = downloadOptions[0];
-        handleDownload(bestQuality.downloadUrl);
-        appendMessage(`Starting download in ${bestQuality.quality}...`, false, null, false);
-        
     } catch (error) {
         console.error('Download error:', error);
-        appendMessage('Sorry, there was an error processing this video. Please try again later.', false);
+        appendMessage(`Sorry, there was an error processing this ${platform} content: ${error.message}`, false);
     } finally {
         hideLoading();
     }
@@ -1586,154 +1628,6 @@ qualitySelectorStyles.textContent = `
     }
 `;
 document.head.appendChild(qualitySelectorStyles);
-
-// Add these styles for the loading animation
-const loadingStyles = document.createElement('style');
-loadingStyles.textContent = `
-    .loading-icon {
-        transform-origin: center;
-        animation: pulse 1s ease-in-out infinite;
-    }
-
-    .loading-circle {
-        fill: var(--accent-color);
-        animation: bounce 1s ease-in-out infinite;
-    }
-
-    .loading-wave {
-        stroke: currentColor;
-        stroke-linecap: round;
-        opacity: 0.5;
-        animation: wave 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(0.95); }
-    }
-
-    @keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-2px); }
-    }
-
-    @keyframes wave {
-        0% { 
-            transform: rotate(0deg);
-            opacity: 0.3;
-        }
-        50% { 
-            transform: rotate(180deg);
-            opacity: 0.6;
-        }
-        100% { 
-            transform: rotate(360deg);
-            opacity: 0.3;
-        }
-    }
-
-    .play-button svg {
-        transition: transform 0.2s ease;
-    }
-
-    .play-button:active svg {
-        transform: scale(0.9);
-    }
-
-    /* Update loading overlay animation */
-    .loading-spinner {
-        width: 50px;
-        height: 50px;
-        position: relative;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .loading-spinner:before,
-    .loading-spinner:after {
-        content: '';
-        position: absolute;
-        border-radius: 50%;
-        animation: ripple 1.5s ease-in-out infinite;
-    }
-
-    .loading-spinner:before {
-        width: 30px;
-        height: 30px;
-        background: var(--accent-color);
-        animation-delay: 0s;
-    }
-
-    .loading-spinner:after {
-        width: 20px;
-        height: 20px;
-        background: white;
-        animation-delay: 0.3s;
-    }
-
-    @keyframes ripple {
-        0% {
-            transform: scale(0.5);
-            opacity: 1;
-        }
-        50% {
-            transform: scale(1.2);
-            opacity: 0.5;
-        }
-        100% {
-            transform: scale(0.5);
-            opacity: 1;
-        }
-    }
-`;
-document.head.appendChild(loadingStyles);
-
-// Also update the loading overlay animation
-const loadingOverlayStyles = document.createElement('style');
-loadingOverlayStyles.textContent = `
-    #loadingOverlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        display: none;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    }
-
-    .loading-spinner {
-        width: 40px;
-        height: 40px;
-        position: relative;
-    }
-
-    .loading-spinner:before {
-        content: '';
-        box-sizing: border-box;
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border: 3px solid rgba(255, 255, 255, 0.1);
-        border-top-color: #fff;
-        border-radius: 50%;
-        animation: loading-spin 0.8s ease-in-out infinite;
-    }
-
-    @keyframes loading-spin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
-`;
-document.head.appendChild(loadingOverlayStyles);
 
 // Add styles for the generated images
 const imageStyles = document.createElement('style');
@@ -2823,3 +2717,126 @@ function handleCommandsCommand(args) {
             appendMessage('Available commands management options: list, add, remove', false);
     }
 }
+
+// Add styles for the new model options
+const modelStyles = document.createElement('style');
+modelStyles.textContent = `
+    .model-dropdown option[value="qwen2_coder"],
+    .model-dropdown option[value="gemma"],
+    .model-dropdown option[value="llama3_70b"],
+    .model-dropdown option[value="qwen2"] {
+        color: var(--accent-color);
+        font-weight: 500;
+    }
+
+    /* Add a "New" badge to new models */
+    .model-dropdown option[value="qwen2_coder"]::after,
+    .model-dropdown option[value="gemma"]::after,
+    .model-dropdown option[value="llama3_70b"]::after,
+    .model-dropdown option[value="qwen2"]::after {
+        content: " (New)";
+        color: var(--accent-color);
+        font-size: 0.8em;
+    }
+`;
+document.head.appendChild(modelStyles);
+
+// Update the model description tooltips
+const modelDescriptions = {
+    qwen2_coder: "Specialized in code generation and technical tasks",
+    gemma: "Google's lightweight and efficient language model",
+    llama3_70b: "Large-scale language model with 70B parameters",
+    qwen2: "Advanced general-purpose language model"
+};
+
+// Add tooltips to model selector
+modelSelector.addEventListener('mouseover', (e) => {
+    const option = e.target.closest('option');
+    if (option && modelDescriptions[option.value]) {
+        option.title = modelDescriptions[option.value];
+    }
+});
+
+// Add styles for the new download options UI
+const downloadStyles = document.createElement('style');
+downloadStyles.textContent = `
+    .download-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+        background: var(--background-secondary);
+        border-radius: 8px;
+        padding: 12px;
+    }
+
+    .download-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: var(--background-primary);
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .download-option:hover {
+        background: var(--background-hover);
+    }
+
+    .download-option-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .download-option-quality {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .download-option-details {
+        font-size: 0.85em;
+        color: var(--text-secondary);
+    }
+
+    .download-button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        background: var(--accent-color);
+        color: white;
+        cursor: pointer;
+        font-size: 0.9em;
+        transition: all 0.2s ease;
+    }
+
+    .download-button:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+    }
+
+    .download-button svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    @media (max-width: 768px) {
+        .download-container {
+            padding: 8px;
+        }
+
+        .download-option {
+            padding: 6px 10px;
+        }
+
+        .download-button {
+            padding: 4px 8px;
+            font-size: 0.85em;
+        }
+    }
+`;
+document.head.appendChild(downloadStyles);
