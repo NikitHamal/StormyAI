@@ -66,8 +66,6 @@ toolbarStyles.textContent = `
 
     .chat-input-container {
         position: fixed;
-        display: flex;
-        justify-content: center;
         bottom: 0;
         left: 0;
         right: 0;
@@ -1734,45 +1732,71 @@ ${MIDJOURNEY_STYLES.map((style, index) => `${index + 1}. ${style}`).join('\n')}`
 // Add styles for the style selector
 const styleSelectorStyles = document.createElement('style');
 styleSelectorStyles.textContent = `
+.style-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Flexible grid */
+    gap: 12px;
+    padding: 12px;
+    margin: 10px 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Style Option */
+.style-option {
+    padding: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--background-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    text-align: center;
+    text-transform: capitalize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    user-select: none;
+}
+
+/* Hover & Active Effects */
+.style-option:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.style-option:active {
+    transform: scale(0.95);
+}
+
+/* Mobile-Friendly Adjustments */
+@media (max-width: 768px) {
     .style-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 8px;
-        margin: 10px 0;
+        display: flex;
+        overflow-x: auto; /* Horizontal scroll for better usability */
+        gap: 10px;
+        padding: 10px;
+        scrollbar-width: none; /* Hide scrollbar for a clean look */
     }
 
     .style-option {
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        background: var(--background-primary);
-        color: var(--text-primary);
-        cursor: pointer;
-        transition: all 0.2s ease;
+        flex: 0 0 auto;
+        min-width: 120px;
+        padding: 8px;
         font-size: 0.9rem;
-        text-transform: capitalize;
+        border-radius: 6px;
+        white-space: nowrap; /* Prevents text from wrapping */
     }
 
-    .style-option:hover {
-        background: var(--accent-color);
-        color: white;
-        border-color: var(--accent-color);
+    /* Hide scrollbar for mobile */
+    .style-selector::-webkit-scrollbar {
+        display: none;
     }
-
-    .style-option:active {
-        transform: scale(0.98);
-    }
-
-    @media (max-width: 768px) {
-        .style-selector {
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        }
-
-        .style-option {
-            padding: 6px 10px;
-            font-size: 0.85rem;
-        }
-    }
+}
 `;
 document.head.appendChild(styleSelectorStyles);
 
