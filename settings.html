@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stormy - Settings</title>
+    <link rel="icon" type="image/x-icon" href="stormy.jpg">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --text-primary: #ECECF1;
+            --text-secondary: #D1D5DB;
+            --background-primary: #343541;
+            --background-secondary: #444654;
+            --background-hover: #40414F;
+            --border-color: rgba(255,255,255,0.1);
+            --accent-color: #19C37D;
+            --accent-color-rgb: 25, 195, 125;
+            --input-background: #40414F;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif !important;
+        }
+
+        body {
+            background-color: var(--background-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .settings-header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+        }
+
+        .settings-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .settings-section {
+            background: var(--background-secondary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--background-primary);
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-name {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .setting-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--input-background);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .command-list {
+            margin-top: 1rem;
+        }
+
+        .command-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: var(--background-primary);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+
+        .command-phrase {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--input-background);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .command-action {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--input-background);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .add-command {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+
+        .add-command:hover {
+            opacity: 0.9;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            text-decoration: none;
+            margin-bottom: 1rem;
+        }
+
+        .back-button:hover {
+            background: var(--background-hover);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .settings-section {
+                padding: 1rem;
+            }
+
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .command-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Chat
+        </a>
+
+        <div class="settings-header">
+            <img src="stormy.jpg" alt="Stormy">
+            <h1 class="settings-title">Settings</h1>
+        </div>
+
+        <div class="settings-section">
+            <h2>Voice Commands</h2>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">Enable Voice Commands</div>
+                    <div class="setting-description">Allow voice input for sending messages</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="voiceCommandsEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">Auto-disable Microphone</div>
+                    <div class="setting-description">Automatically turn off microphone after sending message</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="autoDisableMic" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <div class="setting-name">Voice Feedback</div>
+                    <div class="setting-description">Play sound when voice command is recognized</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="voiceFeedback" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>Custom Voice Commands</h2>
+            <div class="command-list" id="commandList">
+                <!-- Command items will be added here dynamically -->
+            </div>
+            <button class="add-command" onclick="addNewCommand()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Add New Command
+            </button>
+        </div>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>
