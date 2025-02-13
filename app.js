@@ -1807,7 +1807,7 @@ ${MIDJOURNEY_STYLES.map((style, index) => `${index + 1}. ${style}`).join('\n')}`
         showLoading();
         
         const response = await fetch(`${MIDJOURNEY_API_URL}?text=${encodeURIComponent(prompt)}&style=${selectedStyle}`);
-
+        
         if (!response.ok) {
             throw new Error(`Image generation failed with status ${response.status}`);
         }
@@ -2058,8 +2058,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // For iOS Safari, open image in new tab
             if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
                 window.open(img.src, '_blank');
-            return;
-        }
+                return;
+            }
 
             // For other browsers, try download
             try {
@@ -2125,12 +2125,9 @@ function downloadBlob(blob, fileName) {
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     a.remove();
 }
-
-
 
 // Add iOS-specific meta tags to index.html
 document.head.insertAdjacentHTML('beforeend', `
@@ -2826,237 +2823,3 @@ function handleCommandsCommand(args) {
             appendMessage('Available commands management options: list, add, remove', false);
     }
 }
-
-// Update the track list HTML generation to include a download button
-function createTrackListHTML(tracks) {
-    return `
-            <div class="track-list">
-                ${tracks.map((track, index) => `
-                    <div class="track-item" data-track-id="${track.id}">
-                        <div class="track-header">
-                            <img src="${track.thumbnail}" alt="${track.title}" class="track-thumb">
-                            <div class="track-info">
-                                <div class="track-title">${track.title}</div>
-                                <div class="track-duration">${track.duration || ''}</div>
-                            </div>
-                            <div class="track-controls">
-                            <button class="play-button" data-video-id="${track.id}" onclick="togglePlay('${track.id}')">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                </svg>
-                            </button>
-                            <button class="download-button" onclick="showFormatSelector('${track.id}', '${track.title}')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="format-selector" id="format-${track.id}" style="display: none;">
-                        <div class="format-tabs">
-                            <button class="format-tab active" onclick="switchFormatTab(this, 'audio-${track.id}')">Audio</button>
-                            <button class="format-tab" onclick="switchFormatTab(this, 'video-${track.id}')">Video</button>
-                        </div>
-                        <div class="format-content">
-                            <div id="audio-${track.id}" class="format-panel active"></div>
-                            <div id="video-${track.id}" class="format-panel"></div>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-// Add these functions to handle format selection and download
-function showFormatSelector(videoId, title) {
-    // Hide all other format selectors
-    document.querySelectorAll('.format-selector').forEach(el => el.style.display = 'none');
-    
-    const formatSelector = document.getElementById(`format-${videoId}`);
-    if (formatSelector.style.display === 'none') {
-        formatSelector.style.display = 'block';
-        loadFormats(videoId, title);
-    } else {
-        formatSelector.style.display = 'none';
-    }
-}
-
-async function loadFormats(videoId, title) {
-    const audioPanel = document.getElementById(`audio-${videoId}`);
-    const videoPanel = document.getElementById(`video-${videoId}`);
-    
-    showLoading();
-    try {
-        const response = await fetch(`${YT_DOWNLOAD_API}?url=${videoId}`);
-        const data = await response.json();
-        
-        if (!response.ok) throw new Error(data.message || 'Failed to fetch formats');
-
-        // Separate audio and video formats
-        const audioFormats = data.formats.filter(f => f.mimeType.includes('audio'));
-        const videoFormats = data.formats.filter(f => f.mimeType.includes('video'));
-
-        // Sort formats by quality
-        audioFormats.sort((a, b) => parseInt(b.bitrate) - parseInt(a.bitrate));
-        videoFormats.sort((a, b) => parseInt(b.height) - parseInt(a.height));
-
-        // Generate audio format HTML
-        audioPanel.innerHTML = audioFormats.map(format => `
-            <div class="format-option" onclick="downloadFormat('${format.url}', '${title}', '${format.mimeType}')">
-                <span class="format-quality">${Math.round(format.bitrate/1000)}kbps</span>
-                <span class="format-size">${formatSize(format.contentLength)}</span>
-            </div>
-        `).join('');
-
-        // Generate video format HTML
-        videoPanel.innerHTML = videoFormats.map(format => `
-            <div class="format-option" onclick="downloadFormat('${format.url}', '${title}', '${format.mimeType}')">
-                <span class="format-quality">${format.qualityLabel}</span>
-                <span class="format-size">${formatSize(format.contentLength)}</span>
-            </div>
-        `).join('');
-
-    } catch (error) {
-        console.error('Error loading formats:', error);
-        audioPanel.innerHTML = '<div class="format-error">Failed to load formats</div>';
-        videoPanel.innerHTML = '<div class="format-error">Failed to load formats</div>';
-    } finally {
-        hideLoading();
-    }
-}
-
-function switchFormatTab(tab, panelId) {
-    // Update tab states
-    const tabs = tab.parentElement.getElementsByClassName('format-tab');
-    Array.from(tabs).forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-
-    // Update panel visibility
-    const panels = tab.closest('.format-selector').getElementsByClassName('format-panel');
-    Array.from(panels).forEach(p => p.classList.remove('active'));
-    document.getElementById(panelId).classList.add('active');
-}
-
-function formatSize(bytes) {
-    if (!bytes) return 'Unknown size';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
-}
-
-function downloadFormat(url, title, mimeType) {
-    const extension = mimeType.includes('audio') ? 'mp3' : 'mp4';
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title}.${extension}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-// Add styles for the new format selector
-const formatSelectorStyles = document.createElement('style');
-formatSelectorStyles.textContent = `
-    .track-controls {
-        display: flex;
-        gap: 8px;
-    }
-
-    .download-button {
-        background: none;
-        border: none;
-        padding: 8px;
-        cursor: pointer;
-        color: var(--text-secondary);
-        transition: color 0.2s ease;
-    }
-
-    .download-button:hover {
-        color: var(--accent-color);
-    }
-
-    .download-button svg {
-        width: 20px;
-        height: 20px;
-    }
-
-    .format-selector {
-        margin-top: 10px;
-        background: var(--background-secondary);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .format-tabs {
-        display: flex;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .format-tab {
-        flex: 1;
-        padding: 10px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        color: var(--text-secondary);
-        transition: all 0.2s ease;
-    }
-
-    .format-tab.active {
-        color: var(--accent-color);
-        background: var(--background-primary);
-    }
-
-    .format-panel {
-        display: none;
-        padding: 10px;
-    }
-
-    .format-panel.active {
-        display: block;
-    }
-
-    .format-option {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px;
-        cursor: pointer;
-        border-radius: 4px;
-        transition: background 0.2s ease;
-    }
-
-    .format-option:hover {
-        background: var(--background-primary);
-    }
-
-    .format-quality {
-        color: var(--text-primary);
-        font-weight: 500;
-    }
-
-    .format-size {
-        color: var(--text-secondary);
-        font-size: 0.9em;
-    }
-
-    .format-error {
-        color: #ff5555;
-        padding: 10px;
-        text-align: center;
-    }
-
-    @media (max-width: 768px) {
-        .format-option {
-            padding: 10px;
-        }
-
-        .download-button svg {
-            width: 18px;
-            height: 18px;
-        }
-    }
-`;
-document.head.appendChild(formatSelectorStyles);
