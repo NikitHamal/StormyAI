@@ -893,45 +893,71 @@ ${MIDJOURNEY_STYLES.map((style, index) => `${index + 1}. ${style}`).join('\n')}`
 // Add styles for the style selector
 const styleSelectorStyles = document.createElement('style');
 styleSelectorStyles.textContent = `
+.style-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Flexible grid */
+    gap: 12px;
+    padding: 12px;
+    margin: 10px 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Style Option */
+.style-option {
+    padding: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--background-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    text-align: center;
+    text-transform: capitalize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    user-select: none;
+}
+
+/* Hover & Active Effects */
+.style-option:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.style-option:active {
+    transform: scale(0.95);
+}
+
+/* Mobile-Friendly Adjustments */
+@media (max-width: 768px) {
     .style-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 8px;
-        margin: 10px 0;
+        display: flex;
+        overflow-x: auto; /* Horizontal scroll for better usability */
+        gap: 10px;
+        padding: 10px;
+        scrollbar-width: none; /* Hide scrollbar for a clean look */
     }
 
     .style-option {
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        background: var(--background-primary);
-        color: var(--text-primary);
-        cursor: pointer;
-        transition: all 0.2s ease;
+        flex: 0 0 auto;
+        min-width: 120px;
+        padding: 8px;
         font-size: 0.9rem;
-        text-transform: capitalize;
+        border-radius: 6px;
+        white-space: nowrap; /* Prevents text from wrapping */
     }
 
-    .style-option:hover {
-        background: var(--accent-color);
-        color: white;
-        border-color: var(--accent-color);
+    /* Hide scrollbar for mobile */
+    .style-selector::-webkit-scrollbar {
+        display: none;
     }
-
-    .style-option:active {
-        transform: scale(0.98);
-    }
-
-    @media (max-width: 768px) {
-        .style-selector {
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        }
-
-        .style-option {
-            padding: 6px 10px;
-            font-size: 0.85rem;
-        }
-    }
+}
 `;
 document.head.appendChild(styleSelectorStyles);
 
@@ -1304,10 +1330,11 @@ inputWrapper.insertBefore(micButton, chatInput);
 // Initialize speech recognition if available
 let recognition = null;
 if (hasSpeechRecognition) {
-    recognition = new SPEECH_RECOGNITION();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US'; // You can make this configurable
+    recognition = new webkitSpeechRecognition() || new SpeechRecognition();
+recognition.continuous = true;  // Keeps listening longer
+recognition.interimResults = true;  // Captures partial speech
+recognition.lang = 'en-US'; 
+recognition.maxAlternatives = 5;  // Offers more possible results for better accuracy
 
     recognition.onstart = () => {
         micButton.classList.add('recording');
@@ -1325,9 +1352,31 @@ if (hasSpeechRecognition) {
         const transcript = Array.from(event.results)
             .map(result => result[0].transcript)
             .join('').trim(); // Trim whitespace
-        
+
         const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim(); // Remove 'send' and trim whitespace
-        
+
+        // Handle model selection command
+        if (transcript.toLowerCase().startsWith('switch model to')) {
+            const modelName = transcript.toLowerCase().replace('switch model to', '').trim();
+            const modelDropdown = document.getElementById('modelDropdown'); // Replace with actual ID
+
+            if (modelDropdown) {
+                let found = false;
+                for (const option of modelDropdown.options) {
+                    if (option.textContent.toLowerCase() === modelName) {
+                        modelDropdown.value = option.value;
+                        modelDropdown.dispatchEvent(new Event('change')); // Trigger selection event
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    alert(`Model "${modelName}" not found.`);
+                }
+            }
+            return;
+        }
+
         // Handle style selection command
         if (transcript.toLowerCase().startsWith('choose style')) {
             const style = transcript.toLowerCase().replace('choose style', '').trim();
