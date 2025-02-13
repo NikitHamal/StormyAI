@@ -12,10 +12,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
-            font-family: 'Poppins', sans-serif !important;
-        }
-
-        * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
@@ -332,6 +328,9 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .chat-message {
@@ -691,6 +690,11 @@
             <h2>AI is thinking...</h2>
             <div class="spinner" style="margin: auto; border: 16px solid #f3f3f3; border-top: 16px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 2s linear infinite;"></div>
         </div>
+    </div>
+    <div id="send-confirmation-dialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); z-index: 1001;">
+        <p>Send the prompt?</p>
+        <button id="confirm-send">Yes</button>
+        <button id="cancel-send">No</button>
     </div>
     <script src="app.js"></script>
 </body>
