@@ -2194,97 +2194,157 @@ if (hasSpeechRecognition) {
         if (isProcessingVoice) return; // Prevent duplicate processing
         isProcessingVoice = true;
 
-        const transcript = event.results[0][0].transcript.trim();
-        const cleanedTranscript = transcript.replace(/\bsend\b/i, '').trim();
+        const transcript = event.results[0][0].transcript.trim().toLowerCase();
 
-        // Handle model selection command
-        if (transcript.toLowerCase().startsWith('switch model to')) {
-            const modelName = transcript.toLowerCase().replace('switch model to', '').trim();
-            const modelDropdown = document.getElementById('modelDropdown');
+        // Direct command handling without requiring "send"
+        const handleCommand = async () => {
+            // Handle imagine command
+            if (transcript.startsWith('imagine')) {
+                const prompt = transcript.replace('imagine', '').trim();
+                if (prompt) {
+                    recognition.stop();
+                    await handleImagineCommand(prompt);
+                    return true;
+                }
+            }
 
-            if (modelDropdown) {
-                let found = false;
-                for (const option of modelDropdown.options) {
-                    if (option.textContent.toLowerCase() === modelName) {
-                        modelDropdown.value = option.value;
-                        modelDropdown.dispatchEvent(new Event('change'));
-                        found = true;
-                        break;
+            // Handle play command for music search
+            if (transcript.startsWith('play')) {
+                // Skip if it's a quality selection or ordinal command
+                if (!transcript.match(/(\d+kbps|first|second|third|fourth|fifth)/)) {
+                    const query = transcript.replace('play', '').trim();
+                    if (query) {
+                        recognition.stop();
+                        await handlePlayCommand(query);
+                        return true;
                     }
                 }
-                if (!found) {
-                    alert(`Model "${modelName}" not found.`);
+            }
+
+            // Handle download command
+            if (transcript.startsWith('download')) {
+                const url = transcript.replace('download', '').trim();
+                if (url) {
+                    recognition.stop();
+                    await handleDownloadCommand(url);
+                    return true;
                 }
             }
-            recognition.stop();
-            return;
-        }
 
-        // Handle style selection command
-        if (transcript.toLowerCase().startsWith('choose style')) {
-            const style = transcript.toLowerCase().replace('choose style', '').trim();
-            const styleButton = document.querySelector(`.style-option[data-style="${style}"]`);
-            if (styleButton) {
-                styleButton.click();
+            // Handle help command
+            if (transcript.startsWith('help')) {
+                const command = transcript.replace('help', '').trim();
                 recognition.stop();
-                return;
+                handleHelpCommand(command);
+                return true;
             }
-        }
 
-        // Handle video quality selection command using ordinal numbers
-        const playMatch = transcript.toLowerCase().match(/^play (first|second|third|fourth|fifth)$/);
-        if (playMatch) {
-            const ordinalNumber = playMatch[1];
-            const videoNumber = ordinalMap[ordinalNumber];
-            if (videoNumber) {
-                const playButton = document.querySelector(`.track-item:nth-child(${videoNumber}) .play-button`);
-                if (playButton) {
-                    playButton.click();
+            // Handle model selection command
+            if (transcript.startsWith('switch model to') || transcript.startsWith('use model')) {
+                const modelName = transcript
+                    .replace('switch model to', '')
+                    .replace('use model', '')
+                    .trim();
+                const modelDropdown = document.getElementById('model-selector');
+
+                if (modelDropdown) {
+                    let found = false;
+                    for (const option of modelDropdown.options) {
+                        if (option.textContent.toLowerCase().includes(modelName)) {
+                            modelDropdown.value = option.value;
+                            modelDropdown.dispatchEvent(new Event('change'));
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        appendMessage(`Model "${modelName}" not found.`, false);
+                    }
+                }
+                recognition.stop();
+                return true;
+            }
+
+            // Handle style selection command
+            if (transcript.startsWith('choose style') || transcript.startsWith('select style')) {
+                const style = transcript
+                    .replace('choose style', '')
+                    .replace('select style', '')
+                    .trim();
+                const styleButton = document.querySelector(`.style-option[data-style="${style}"]`);
+                if (styleButton) {
+                    styleButton.click();
                     recognition.stop();
-                    return;
+                    return true;
                 }
             }
-        }
 
-        // Handle audio quality selection command
-        const qualityMatch = transcript.toLowerCase().match(/play (\d+)(?:kbps)?/);
-        if (qualityMatch) {
-            const requestedQuality = qualityMatch[1];
-            const qualityOptions = document.querySelectorAll('.quality-option');
-            for (const option of qualityOptions) {
-                const qualityText = option.querySelector('.quality-name').textContent;
-                if (qualityText.toLowerCase().includes(requestedQuality)) {
-                    option.click();
-                    recognition.stop();
-                    return;
+            // Handle video quality selection command using ordinal numbers
+            const playMatch = transcript.match(/^play (first|second|third|fourth|fifth)$/);
+            if (playMatch) {
+                const ordinalNumber = playMatch[1];
+                const videoNumber = ordinalMap[ordinalNumber];
+                if (videoNumber) {
+                    const playButton = document.querySelector(`.track-item:nth-child(${videoNumber}) .play-button`);
+                    if (playButton) {
+                        playButton.click();
+                        recognition.stop();
+                        return true;
+                    }
                 }
             }
-        }
 
-        // Handle send command
-        if (transcript.toLowerCase().includes('send')) {
-            chatInput.value = cleanedTranscript;
-            if (cleanedTranscript && !isSending) {
-                isSending = true;
-                sendMessage();
-                setTimeout(() => isSending = false, 1000);
+            // Handle audio quality selection command
+            const qualityMatch = transcript.match(/play (\d+)(?:kbps)?/);
+            if (qualityMatch) {
+                const requestedQuality = qualityMatch[1];
+                const qualityOptions = document.querySelectorAll('.quality-option');
+                for (const option of qualityOptions) {
+                    const qualityText = option.querySelector('.quality-name').textContent;
+                    if (qualityText.toLowerCase().includes(requestedQuality)) {
+                        option.click();
+                        recognition.stop();
+                        return true;
+                    }
+                }
             }
-            recognition.stop();
-            return;
-        }
 
-        // Default behavior: update input value
-        chatInput.value = transcript;
-        chatInput.style.height = 'auto';
-        chatInput.style.height = chatInput.scrollHeight + 'px';
-        
-        // Stop recognition after processing
-        recognition.stop();
-        
-        // Reset processing flag after a short delay
-        setTimeout(() => {
-            isProcessingVoice = false;
-        }, 500);
+            // Handle clear command
+            if (transcript === 'clear' || transcript === 'clear chat') {
+                chatMessages.innerHTML = '';
+                recognition.stop();
+                return true;
+            }
+
+            return false; // No command matched
+        };
+
+        // Try to handle as a command first
+        handleCommand().then(wasCommand => {
+            if (!wasCommand) {
+                // If not a command, treat as regular message
+                chatInput.value = transcript;
+                chatInput.style.height = 'auto';
+                chatInput.style.height = chatInput.scrollHeight + 'px';
+                
+                // Auto-send if the transcript ends with "send"
+                if (transcript.endsWith('send')) {
+                    const messageText = transcript.replace(/send$/i, '').trim();
+                    if (messageText && !isSending) {
+                        chatInput.value = messageText;
+                        isSending = true;
+                        sendMessage();
+                        setTimeout(() => isSending = false, 1000);
+                    }
+                }
+                recognition.stop();
+            }
+            
+            // Reset processing flag after a short delay
+            setTimeout(() => {
+                isProcessingVoice = false;
+            }, 500);
+        });
     };
 
     recognition.onerror = (event) => {
@@ -2316,3 +2376,88 @@ const ordinalMap = {
     'fourth': 4,
     'fifth': 5
 };
+
+// Add voice command feedback
+function showVoiceCommandFeedback(message, duration = 2000) {
+    const feedback = document.createElement('div');
+    feedback.className = 'voice-feedback';
+    feedback.textContent = message;
+    document.body.appendChild(feedback);
+    
+    setTimeout(() => {
+        feedback.classList.add('fade-out');
+        setTimeout(() => feedback.remove(), 300);
+    }, duration);
+}
+
+// Add styles for voice command feedback
+const voiceFeedbackStyles = document.createElement('style');
+voiceFeedbackStyles.textContent = `
+    .voice-feedback {
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent-color);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 24px;
+        font-size: 1rem;
+        z-index: 1000;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .voice-feedback.fade-out {
+        opacity: 0;
+    }
+
+    @media (max-width: 768px) {
+        .voice-feedback {
+            font-size: 0.9rem;
+            padding: 10px 20px;
+        }
+    }
+`;
+document.head.appendChild(voiceFeedbackStyles);
+
+// Update mic button to show recording state better
+const micButtonStyles = document.createElement('style');
+micButtonStyles.textContent = `
+    .mic-button {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mic-button.recording {
+        color: var(--accent-color);
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .mic-button.recording::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--accent-color);
+        opacity: 0.1;
+        border-radius: 50%;
+        transform: scale(0);
+        animation: ripple 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    @keyframes ripple {
+        0% { transform: scale(0); opacity: 0.1; }
+        100% { transform: scale(2); opacity: 0; }
+    }
+`;
+document.head.appendChild(micButtonStyles);
