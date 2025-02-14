@@ -138,32 +138,29 @@ marked.setOptions({
     gfm: true
 });
 
-const GPT4O_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4o';
-const GPT4O_MINI_API_URL = 'https://api.paxsenix.biz.id/ai/gpt4omini';
-const GEMINI_REALTIME_API_URL = 'https://api.paxsenix.biz.id/ai/gemini-realtime';
+const GPT4O_API_URL = 'https://api.paxsenix.us.kg/ai/gpt4o';
+const GPT4O_MINI_API_URL = 'https://api.paxsenix.us.kg/ai/gpt4omini';
+const GEMINI_REALTIME_API_URL = 'https://api.paxsenix.us.kg/ai/gemini-realtime';
 const GEMINI_FLASH_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 const GEMINI_FLASH_API_KEY = 'AIzaSyChpeOa4gwBVR6ZcOa8KGQezB8iL7hJuI8';
 
 // API endpoints
-const FB_DOWNLOADER_API = 'https://api.paxsenix.biz.id/dl/fb';
-const SPOTIFY_SEARCH_API = 'https://api.paxsenix.biz.id/spotify/search';
-const SPOTIFY_TRACK_API = 'https://api.paxsenix.biz.id/spotify/track';
-const YT_SEARCH_API = 'https://api.paxsenix.biz.id/yt/search';
-const YT_DOWNLOAD_API = 'https://api.paxsenix.biz.id/yt/yttomp4';
+const FB_DOWNLOADER_API = 'https://api.paxsenix.us.kg/dl/fb';
+const SPOTIFY_SEARCH_API = 'https://api.paxsenix.us.kg/spotify/search';
+const SPOTIFY_TRACK_API = 'https://api.paxsenix.us.kg/spotify/track';
+const YT_SEARCH_API = 'https://api.paxsenix.us.kg/yt/search';
+const YT_DOWNLOAD_API = 'https://api.paxsenix.us.kg/yt/yttomp4';
 
 // Add the new API endpoint constant
-const CLAUDE_SONNET_API_URL = 'https://api.paxsenix.biz.id/ai/claudeSonnet';
-const MIXTRAL_API_URL = 'https://api.paxsenix.biz.id/ai/mixtral';
-const LLAMA3_API_URL = 'https://api.paxsenix.biz.id/ai/llama3';
+const CLAUDE_SONNET_API_URL = 'https://api.paxsenix.us.kg/ai/claudeSonnet';
+const MIXTRAL_API_URL = 'https://api.paxsenix.us.kg/ai/mixtral';
+const LLAMA3_API_URL = 'https://api.paxsenix.us.kg/ai/llama3';
 
 // Update the API endpoint constant
-const MIDJOURNEY_API_URL = 'https://api.paxsenix.biz.id/ai-image/midjourney';
+const MIDJOURNEY_API_URL = 'https://api.paxsenix.us.kg/ai-image/midjourney';
 
 // Add the new API endpoint constants after the existing ones
-const QWEN2_CODER_API_URL = 'https://api.paxsenix.biz.id/ai/qwen2Coder';
-const GEMMA_API_URL = 'https://api.paxsenix.biz.id/ai/gemma';
-const LLAMA3_70B_API_URL = 'https://api.paxsenix.biz.id/ai/llama3-1-70B';
-const QWEN2_API_URL = 'https://api.paxsenix.biz.id/ai/qwen2';
+const GEMMA_API_URL = 'https://api.paxsenix.us.kg/ai/gemma';
 
 // Add new API endpoints for downloaders
 const IG_DOWNLOADER_API = 'https://api.paxsenix.biz.id/dl/ig';
